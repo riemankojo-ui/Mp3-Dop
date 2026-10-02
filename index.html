@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audio Toolkit — Tagger, Converter, Splitter</title>
+<style>
+  :root {
+    --bg-0: #0b1120;
+    --bg-1: #111c33;
+    --card: #16233d;
+    --line: #2b3a55;
+    --text: #e6edf7;
+    --muted: #93a4bf;
+    --accent: #4cc2ff;
+    --accent-ink: #04263a;
+    --ok: #34d399;
+    --err: #f87171;
+    --warn: #fbbf24;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2b4d 0%, var(--bg-0) 60%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 18px 60px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    background: rgba(17, 28, 51, 0.9);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  header {
+    padding: 26px 26px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 1.55rem;
+    letter-spacing: -0.4px;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 18px;
+    background: rgba(11, 17, 32, 0.5);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .tab:hover { color: var(--text); background: rgba(76, 194, 255, 0.06); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; padding: 24px 26px 30px; }
+  .panel.active { display: block; }
+
+  .drop {
+    border: 2px dashed var(--line);
+    border-radius: 14px;
+    padding: 26px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background: rgba(11, 17, 32, 0.35);
+  }
+
+  .drop:hover { border-color: #3d5175; }
+  .drop.dragover { border-color: var(--accent); background: rgba(76, 194, 255, 0.08); }
+  .drop p { margin: 0 0 6px; color: var(--muted); font-size: 0.9rem; }
+  .drop .filename { margin: 8px 0 0; color: var(--accent); font-size: 0.85rem; word-break: break-all; }
+
+  .btn {
+    appearance: none;
+    border: 0;
+    border-radius: 10px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: filter .15s, opacity .15s;
+    background: #2b3a55;
+    color: var(--text);
+  }
+
+  .btn:hover:not(:disabled) { filter: brightness(1.15); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); }
+  .btn.small { padding: 7px 12px; font-size: 0.8rem; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  label.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #0d1729;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.88rem;
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(76, 194, 255, 0.15);
+  }
+
+  textarea { resize: vertical; min-height: 90px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.84rem; }
+
+  input[type="file"] {
+    width: 100%;
+    padding: 8px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #0d1729;
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+
+  .cover-wrap {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+  }
+
+  .cover-wrap img {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    display: none;
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+  }
+
+  .status {
+    margin-top: 14px;
+    min-height: 20px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  .status.warn { color: var(--warn); }
+
+  .progress {
+    margin-top: 14px;
+    height: 6px;
+    border-radius: 99px;
+    background: #0d1729;
+    border: 1px solid var(--line);
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress.show { display: block; }
+  .progress .bar { height: 100%; width: 0%; background: linear-gradient(90deg, #4cc2ff, #34d399); transition: width .12s linear; }
+
+  .hint {
+    margin-top: 16px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .radio-row {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .radio-row label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.86rem;
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  audio { width: 100%; margin-top: 16px; }
+
+  .results { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+
+  .result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #0d1729;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .result-row .meta { font-size: 0.84rem; }
+  .result-row .meta small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+
+  .section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 22px 0 0;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 560px) {
+    .tabs { padding: 0 8px; }
+    .tab { padding: 12px 10px; font-size: 0.82rem; }
+    .panel { padding: 20px 16px 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Audio Toolkit</h1>
+    <p>Tag, convert and split audio files entirely on your device. No internet required.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="tagger">MP3 Tagger</button>
+    <button class="tab" data-tab="converter">MP3 Converter</button>
+    <button class="tab" data-tab="splitter">Audio Splitter</button>
+  </nav>
+
+  <!-- ================= TAB 1: TAGGER ================= -->
+  <section class="panel active" id="panel-tagger">
+    <div class="drop" id="tagDrop">
+      <input type="file" id="tagFileInput" accept=".mp3,audio/mpeg" hidden />
+      <p>Drag and drop an MP3 here</p>
+      <button type="button" class="btn primary" id="tagChooseBtn">Choose MP3 file</button>
+      <p class="filename" id="tagFileName"></p>
+    </div>
+
+    <form id="tagForm" class="grid" autocomplete="off">
+      <label class="field">Title<input type="text" id="fTitle" /></label>
+      <label class="field">Artist<input type="text" id="fArtist" /></label>
+      <label class="field">Album<input type="text" id="fAlbum" /></label>
+      <label class="field">Album Artist<input type="text" id="fAlbumArtist" /></label>
+      <label class="field">Year<input type="text" id="fYear" /></label>
+      <label class="field">Genre<input type="text" id="fGenre" /></label>
+      <label class="field">Track<input type="text" id="fTrack" placeholder="e.g. 3/12" /></label>
+      <label class="field">Comment<input type="text" id="fComment" /></label>
+      <label class="field">Cover Art<input type="file" id="fCover" accept="image/*" /></label>
+      <div class="cover-wrap"><img id="coverPreview" alt="Cover preview" /></div>
+    </form>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="tagSaveBtn" disabled>Save and download tagged MP3</button>
+      <button type="button" class="btn ghost" id="tagResetBtn">Reset</button>
+    </div>
+
+    <div class="status" id="tagStatus"></div>
+
+    <p class="hint">
+      Browsers cannot overwrite files on disk, so the tagged file downloads as a new copy.
+      Existing ID3v2 tags are read and rewritten; cover art is replaced when you pick a new image.
+    </p>
+  </section>
+
+  <!-- ================= TAB 2: CONVERTER ================= -->
+  <section class="panel" id="panel-converter">
+    <div class="drop" id="convDrop">
+      <input type="file" id="convFileInput" accept="audio/*,.wav,.mp3,.ogg,.oga,.m4a,.aac,.flac,.webm" hidden />
+      <p>Drag and drop an audio file here</p>
+      <button type="button" class="btn primary" id="convChooseBtn">Choose audio file</button>
+      <p class="filename" id="convFileName"></p>
+    </div>
+
+    <div class="grid">
+      <label class="field">
+        Output format
+        <select id="convFormat">
+          <option value="mp3">MP3 (lossy)</option>
+          <option value="wav">WAV (lossless PCM)</option>
+        </select>
+      </label>
+
+      <label class="field" id="convBitrateField">
+        MP3 bitrate
+        <select id="convBitrate">
+          <option value="320">320 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="192" selected>192 kbps</option>
+          <option value="128">128 kbps</option>
+          <option value="96">96 kbps</option>
+        </select>
+      </label>
+
+      <label class="field">
+        Channels
+        <select id="convChannels">
+          <option value="keep" selected>Keep original</option>
+          <option value="mono">Mono (downmix)</option>
+          <option value="stereo">Stereo</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="convRunBtn" disabled>Convert and download</button>
+      <button type="button" class="btn ghost" id="convResetBtn">Reset</button>
+    </div>
+
+    <div class="progress" id="convProgress"><div class="bar" id="convBar"></div></div>
+    <div class="status" id="convStatus"></div>
+
+    <p class="hint">
+      Input decoding uses your device's built-in codecs. MP3, WAV, OGG and M4A/AAC generally work.
+      FLAC works on most modern Android versions. Files the browser cannot decode will report an error.
+    </p>
+  </section>
+
+  <!-- ================= TAB 3: SPLITTER ================= -->
+  <section class="panel" id="panel-splitter">
+    <div class="drop" id="splitDrop">
+      <input type="file" id="splitFileInput" accept="audio/*,.wav,.mp3,.ogg,.oga,.m4a,.aac,.flac,.webm" hidden />
+      <p>Drag and drop an audio file here</p>
+      <button type="button" class="btn primary" id="splitChooseBtn">Choose audio file</button>
+      <p class="filename" id="splitFileName"></p>
+    </div>
+
+    <audio id="splitPlayer" controls class="hidden"></audio>
+
+    <div class="section-title">Split mode</div>
+    <div class="radio-row">
+      <label><input type="radio" name="splitMode" value="equal" checked /> Equal parts</label>
+      <label><input type="radio" name="splitMode" value="ranges" /> Custom time ranges</label>
+    </div>
+
+    <div class="grid">
+      <label class="field" id="partsField">
+        Number of parts
+        <input type="number" id="splitParts" min="2" max="50" value="2" />
+      </label>
+
+      <label class="field hidden" id="rangesField" style="grid-column:1/-1">
+        Time ranges (one per line, format start-end)
+        <textarea id="splitRanges" placeholder="0:00-1:30&#10;1:30-3:00&#10;3:00-4:45"></textarea>
+      </label>
+
+      <label class="field">
+        Output format
+        <select id="splitFormat">
+          <option value="mp3">MP3 (lossy)</option>
+          <option value="wav">WAV (lossless PCM)</option>
+        </select>
+      </label>
+
+      <label class="field" id="splitBitrateField">
+        MP3 bitrate
+        <select id="splitBitrate">
+          <option value="320">320 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="192" selected>192 kbps</option>
+          <option value="128">128 kbps</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="splitRunBtn" disabled>Split audio</button>
+      <button type="button" class="btn ghost" id="splitClearBtn">Clear results</button>
+    </div>
+
+    <div class="progress" id="splitProgress"><div class="bar" id="splitBar"></div></div>
+    <div class="status" id="splitStatus"></div>
+
+    <div class="results" id="splitResults"></div>
+
+    <p class="hint">
+      Time format accepts <code>ss</code>, <code>mm:ss</code> or <code>hh:mm:ss</code>.
+      Each part is encoded separately, so long files with many parts may take a while.
+    </p>
+  </section>
+</div>
+
+<!-- ============================================================
+     LOCAL LIBRARIES (offline) — these must exist in ./libs/
+     ============================================================ -->
+<script src="libs/jsmediatags.min.js"></script>
+<script src="libs/browser-id3-writer.min.js"></script>
+<script src="libs/lame.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     SHARED HELPERS
+     ========================================================= */
+
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(el, msg, type) {
+    el.textContent = msg || "";
+    el.className = "status" + (type ? " " + type : "");
+  }
+
+  function formatTime(sec) {
+    if (!isFinite(sec) || sec < 0) return "--:--";
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  }
+
+  function parseTime(str) {
+    str = String(str).trim();
+    if (!str) return NaN;
+    if (str.indexOf(":") !== -1) {
+      const parts = str.split(":").map((p) => parseFloat(p));
+      if (parts.some((p) => isNaN(p))) return NaN;
+      return parts.reduce((acc, p) => acc * 60 + p, 0);
+    }
+    return parseFloat(str);
+  }
+
+  function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Could not read file."));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  let sharedCtx = null;
+  function getAudioContext() {
+    if (!sharedCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) throw new Error("Web Audio API is not supported in this browser.");
+      sharedCtx = new AC();
+    }
+    return sharedCtx;
+  }
+
+  function newOfflineContext(channels, length, sampleRate) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) throw new Error("OfflineAudioContext is not supported in this browser.");
+    return new OAC(channels, length, sampleRate);
+  }
+
+  async function decodeAudioFile(file) {
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    const ctx = getAudioContext();
+    return await new Promise((resolve, reject) => {
+      const copy = arrayBuffer.slice(0);
+      const result = ctx.decodeAudioData(copy, resolve, reject);
+      if (result && typeof result.then === "function") {
+        result.then(resolve).catch(reject);
+      }
+    });
+  }
+
+  /* ---------- MP3 encoding (lamejs, loaded locally) ---------- */
+
+  function ensureLame() {
+    if (typeof window.lamejs !== "undefined") return Promise.resolve();
+    return Promise.reject(new Error("MP3 encoder (lamejs) is not loaded. Check libs/lame.min.js."));
+  }
+
+  const LAME_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+
+  function normalizeSampleRate(buffer) {
+    if (LAME_RATES.indexOf(buffer.sampleRate) !== -1) return Promise.resolve(buffer);
+    const target = 44100;
+    const channels = Math.max(1, Math.min(buffer.numberOfChannels, 2));
+    const length = Math.max(1, Math.ceil(buffer.duration * target));
+    const ctx = newOfflineContext(channels, length, target);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.start(0);
+    return ctx.startRendering();
+  }
+
+  function remixChannels(buffer, target) {
+    const srcCh = buffer.numberOfChannels;
+    if (target === "keep") return buffer;
+
+    const want = target === "mono" ? 1 : 2;
+    if (srcCh === want) return buffer;
+
+    const length = Math.max(1, buffer.length);
+    const sampleRate = buffer.sampleRate;
+    const ctx = newOfflineContext(want, length, sampleRate);
+    const out = ctx.createBuffer(want, length, sampleRate);
+
+    if (want === 1) {
+      const a = buffer.getChannelData(0);
+      const b = srcCh > 1 ? buffer.getChannelData(1) : a;
+      const d = out.getChannelData(0);
+      for (let i = 0; i < length; i++) d[i] = (a[i] + b[i]) * 0.5;
+    } else {
+      const a = buffer.getChannelData(0);
+      out.getChannelData(0).set(a);
+      out.getChannelData(1).set(a);
+    }
+    return out;
+  }
+
+  function floatTo16(float32) {
+    const out = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      let s = float32[i];
+      if (s > 1) s = 1;
+      else if (s < -1) s = -1;
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return out;
+  }
+
+  async function encodeMp3(audioBuffer, kbps, onProgress) {
+    await ensureLame();
+
+    let buffer = await normalizeSampleRate(audioBuffer);
+    const channels = Math.min(Math.max(buffer.numberOfChannels, 1), 2);
+    const sampleRate = buffer.sampleRate;
+
+    if (buffer.length < 1) throw new Error("Audio is empty.");
+
+    const encoder = new window.lamejs.Mp3Encoder(channels, sampleRate, kbps);
+
+    const left = floatTo16(buffer.getChannelData(0));
+    const right = channels === 2 ? floatTo16(buffer.getChannelData(1)) : null;
+
+    const blockSize = 1152;
+    const chunks = [];
+    const total = left.length;
+    let lastYield = 0;
+
+    for (let i = 0; i < total; i += blockSize) {
+      const l = left.subarray(i, i + blockSize);
+      let encoded;
+      if (channels === 2) {
+        const r = right.subarray(i, i + blockSize);
+        encoded = encoder.encodeBuffer(l, r);
+      } else {
+        encoded = encoder.encodeBuffer(l);
+      }
+      if (encoded.length > 0) chunks.push(new Int8Array(encoded));
+
+      if (i - lastYield > blockSize * 400) {
+        lastYield = i;
+        if (onProgress) onProgress(i / total);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    }
+
+    const tail = encoder.flush();
+    if (tail.length > 0) chunks.push(new Int8Array(tail));
+
+    if (onProgress) onProgress(1);
+    return new Blob(chunks, { type: "audio/mpeg" });
+  }
+
+  /* ---------- WAV encoding ---------- */
+
+  function writeAscii(view, offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  function encodeWav(audioBuffer) {
+    const channels = Math.min(Math.max(audioBuffer.numberOfChannels, 1), 2);
+    const sampleRate = audioBuffer.sampleRate;
+    const length = audioBuffer.length;
+    const bytesPerSample = 2;
+    const blockAlign = channels * bytesPerSample;
+    const dataSize = length * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    writeAscii(view, 0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeAscii(view, 8, "WAVE");
+    writeAscii(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeAscii(view, 36, "data");
+    view.setUint32(40, dataSize, true);
+
+    const chans = [];
+    for (let c = 0; c < channels; c++) chans.push(audioBuffer.getChannelData(c));
+
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let c = 0; c < channels; c++) {
+        let s = chans[c][i];
+        if (s > 1) s = 1;
+        else if (s < -1) s = -1;
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([buffer], { type: "audio/wav" });
+  }
+
+  /* ---------- Buffer slicing ---------- */
+
+  function sliceBuffer(buffer, startSec, endSec) {
+    const sampleRate = buffer.sampleRate;
+    const start = Math.max(0, Math.floor(startSec * sampleRate));
+    const end = Math.min(buffer.length, Math.ceil(endSec * sampleRate));
+    const length = Math.max(1, end - start);
+    const channels = Math.min(Math.max(buffer.numberOfChannels, 1), 2);
+
+    const ctx = newOfflineContext(channels, length, sampleRate);
+    const out = ctx.createBuffer(channels, length, sampleRate);
+
+    for (let c = 0; c < channels; c++) {
+      const src = buffer.getChannelData(c);
+      const dst = out.getChannelData(c);
+      for (let i = 0; i < length; i++) {
+        dst[i] = src[start + i] || 0;
+      }
+    }
+    return out;
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function baseName(name) {
+    return name.replace(/\.[^./\\]+$/, "");
+  }
+
+  /* =========================================================
+     TAB SWITCHING
+     ========================================================= */
+
+  const tabs = document.querySelectorAll(".tab");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      $("panel-" + tab.dataset.tab).classList.add("active");
+    });
+  });
+
+  /* =========================================================
+     TAB 1 — MP3 TAGGER
+     ========================================================= */
+
+  (function initTagger() {
+    const drop = $("tagDrop");
+    const input = $("tagFileInput");
+    const chooseBtn = $("tagChooseBtn");
+    const fileNameEl = $("tagFileName");
+    const form = $("tagForm");
+    const statusEl = $("tagStatus");
+    const saveBtn = $("tagSaveBtn");
+    const resetBtn = $("tagResetBtn");
+
+    const title = $("fTitle");
+    const artist = $("fArtist");
+    const album = $("fAlbum");
+    const albumArtist = $("fAlbumArtist");
+    const year = $("fYear");
+    const genre = $("fGenre");
+    const track = $("fTrack");
+    const comment = $("fComment");
+    const coverInput = $("fCover");
+    const coverPreview = $("coverPreview");
+
+    let currentFile = null;
+    let coverArrayBuffer = null;
+    let coverMime = "image/jpeg";
+    let coverObjectUrl = null;
+
+    function clearCover() {
+      coverArrayBuffer = null;
+      if (coverObjectUrl) {
+        URL.revokeObjectURL(coverObjectUrl);
+        coverObjectUrl = null;
+      }
+      coverPreview.removeAttribute("src");
+      coverPreview.style.display = "none";
+    }
+
+    function setCoverPreview(blob) {
+      if (coverObjectUrl) URL.revokeObjectURL(coverObjectUrl);
+      coverObjectUrl = URL.createObjectURL(blob);
+      coverPreview.src = coverObjectUrl;
+      coverPreview.style.display = "block";
+    }
+
+    function resetAll(clearFile) {
+      form.reset();
+      clearCover();
+
+      if (clearFile) {
+        currentFile = null;
+        fileNameEl.textContent = "";
+        input.value = "";
+        saveBtn.disabled = true;
+      }
+      setStatus(statusEl, "", "");
+    }
+
+    chooseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      input.click();
+    });
+
+    drop.addEventListener("click", (e) => {
+      if (e.target === chooseBtn) return;
+      input.click();
+    });
+
+    input.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove("dragover");
+      });
+    });
+
+    drop.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+
+    coverInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        coverArrayBuffer = await readFileAsArrayBuffer(file);
+        coverMime = file.type || "image/jpeg";
+        setCoverPreview(new Blob([coverArrayBuffer], { type: coverMime }));
+      } catch (err) {
+        setStatus(statusEl, "Could not read the cover image.", "err");
+      }
+    });
+
+    async function loadFile(file) {
+      const looksMp3 =
+        /\.mp3$/i.test(file.name) || file.type === "audio/mpeg" || file.type === "audio/mp3";
+
+      if (!looksMp3) {
+        setStatus(statusEl, "That is not an MP3 file. Use the MP3 Converter tab instead.", "err");
+        return;
+      }
+
+      currentFile = file;
+      fileNameEl.textContent =
+        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      saveBtn.disabled = false;
+      resetAll(false);
+      setStatus(statusEl, "Reading tags...", "warn");
+
+      if (typeof window.jsmediatags === "undefined") {
+        setStatus(statusEl, "Tag reader unavailable. You can still write new tags.", "warn");
+        return;
+      }
+
+      window.jsmediatags.read(file, {
+        onSuccess: (tag) => {
+          const t = tag.tags || {};
+          title.value = t.title || "";
+          artist.value = t.artist || "";
+          album.value = t.album || "";
+          albumArtist.value = t.albumArtist || "";
+          year.value = t.year || "";
+          genre.value = t.genre || "";
+          track.value = t.track || "";
+          comment.value = typeof t.comment === "string" ? t.comment : (t.comment && t.comment.text) || "";
+
+          if (t.picture && t.picture.data) {
+            const bytes = new Uint8Array(t.picture.data);
+            coverArrayBuffer = bytes.buffer.slice(0);
+            coverMime = t.picture.format || "image/jpeg";
+            setCoverPreview(new Blob([bytes], { type: coverMime }));
+          }
+
+          setStatus(statusEl, "Tags loaded. Edit the fields and save.", "ok");
+        },
+        onError: () => {
+          setStatus(statusEl, "No readable tags found. Fill in the fields and save.", "warn");
+        }
+      });
+    }
+
+    saveBtn.addEventListener("click", async () => {
+      if (!currentFile) return;
+
+      if (typeof window.ID3Writer === "undefined") {
+        setStatus(statusEl, "ID3 writer library is not loaded. Check libs/browser-id3-writer.min.js.", "err");
+        return;
+      }
+
+      saveBtn.disabled = true;
+      setStatus(statusEl, "Writing tags...", "warn");
+
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(currentFile);
+        const writer = new window.ID3Writer(arrayBuffer);
+
+        const vTitle = title.value.trim();
+        const vArtist = artist.value.trim();
+        const vAlbum = album.value.trim();
+        const vAlbumArtist = albumArtist.value.trim();
+        const vYear = year.value.trim();
+        const vGenre = genre.value.trim();
+        const vTrack = track.value.trim();
+        const vComment = comment.value.trim();
+
+        if (vTitle) writer.setFrame("TIT2", vTitle);
+        if (vArtist) {
+          writer.setFrame(
+            "TPE1",
+            vArtist.split(",").map((s) => s.trim()).filter(Boolean)
+          );
+        }
+        if (vAlbum) writer.setFrame("TALB", vAlbum);
+        if (vAlbumArtist) writer.setFrame("TPE2", vAlbumArtist);
+        if (vYear) writer.setFrame("TYER", vYear);
+        if (vGenre) {
+          writer.setFrame(
+            "TCON",
+            vGenre.split(",").map((s) => s.trim()).filter(Boolean)
+          );
+        }
+        if (vTrack) writer.setFrame("TRCK", vTrack);
+        if (vComment) {
+          writer.setFrame("COMM", { description: "", text: vComment });
+        }
+        if (coverArrayBuffer) {
+          writer.setFrame("APIC", {
+            type: 3,
+            data: coverArrayBuffer,
+            description: "Cover"
+          });
+        }
+
+        const tagged = writer.addTag();
+        const blob = new Blob([tagged], { type: "audio/mpeg" });
+        const outName = (vTitle || baseName(currentFile.name)) + ".mp3";
+
+        triggerDownload(blob, outName);
+        setStatus(statusEl, "Done. Your tagged MP3 is downloading.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(statusEl, "Error writing tags: " + err.message, "err");
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    resetBtn.addEventListener("click", () => resetAll(true));
+  })();
+
+  /* =========================================================
+     TAB 2 — MP3 CONVERTER
+     ========================================================= */
+
+  (function initConverter() {
+    const drop = $("convDrop");
+    const input = $("convFileInput");
+    const chooseBtn = $("convChooseBtn");
+    const fileNameEl = $("convFileName");
+    const statusEl = $("convStatus");
+    const runBtn = $("convRunBtn");
+    const resetBtn = $("convResetBtn");
+    const formatSel = $("convFormat");
+    const bitrateSel = $("convBitrate");
+    const channelsSel = $("convChannels");
+    const bitrateField = $("convBitrateField");
+    const progress = $("convProgress");
+    const bar = $("convBar");
+
+    let currentFile = null;
+
+    function updateFormatUI() {
+      bitrateField.style.display = formatSel.value === "mp3" ? "" : "none";
+    }
+
+    formatSel.addEventListener("change", updateFormatUI);
+    updateFormatUI();
+
+    chooseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      input.click();
+    });
+
+    drop.addEventListener("click", (e) => {
+      if (e.target === chooseBtn) return;
+      input.click();
+    });
+
+    input.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove("dragover");
+      });
+    });
+
+    drop.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    function setFile(file) {
+      currentFile = file;
+      fileNameEl.textContent =
+        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      runBtn.disabled = false;
+      progress.classList.remove("show");
+      bar.style.width = "0%";
+      setStatus(statusEl, "File ready. Choose your settings and convert.", "");
+    }
+
+    resetBtn.addEventListener("click", () => {
+      currentFile = null;
+      input.value = "";
+      fileNameEl.textContent = "";
+      runBtn.disabled = true;
+      progress.classList.remove("show");
+      bar.style.width = "0%";
+      setStatus(statusEl, "", "");
+    });
+
+    runBtn.addEventListener("click", async () => {
+      if (!currentFile) return;
+
+      runBtn.disabled = true;
+      progress.classList.add("show");
+      bar.style.width = "0%";
+
+      try {
+        setStatus(statusEl, "Decoding audio...", "warn");
+        let buffer = await decodeAudioFile(currentFile);
+
+        buffer = remixChannels(buffer, channelsSel.value);
+
+        const fmt = formatSel.value;
+        let blob;
+        let ext;
+
+        if (fmt === "mp3") {
+          const kbps = parseInt(bitrateSel.value, 10);
+          setStatus(statusEl, "Encoding MP3 at " + kbps + " kbps...", "warn");
+          blob = await encodeMp3(buffer, kbps, (p) => {
+            bar.style.width = Math.round(p * 100) + "%";
+          });
+          ext = "mp3";
+        } else {
+          setStatus(statusEl, "Writing WAV...", "warn");
+          bar.style.width = "60%";
+          await new Promise((r) => setTimeout(r, 0));
+          blob = encodeWav(buffer);
+          bar.style.width = "100%";
+          ext = "wav";
+        }
+
+        const name = baseName(currentFile.name) + "." + ext;
+        triggerDownload(blob, name);
+
+        const sizeMb = (blob.size / 1024 / 1024).toFixed(2);
+        setStatus(
+          statusEl,
+          "Done. " + name + " (" + sizeMb + " MB, " + formatTime(buffer.duration) + ") is downloading.",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        setStatus(
+          statusEl,
+          "Conversion failed: " + err.message + " — the browser may not support this input format.",
+          "err"
+        );
+        progress.classList.remove("show");
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+  })();
+
+  /* =========================================================
+     TAB 3 — AUDIO SPLITTER
+     ========================================================= */
+
+  (function initSplitter() {
+    const drop = $("splitDrop");
+    const input = $("splitFileInput");
+    const chooseBtn = $("splitChooseBtn");
+    const fileNameEl = $("splitFileName");
+    const statusEl = $("splitStatus");
+    const runBtn = $("splitRunBtn");
+    const clearBtn = $("splitClearBtn");
+    const player = $("splitPlayer");
+    const resultsEl = $("splitResults");
+    const progress = $("splitProgress");
+    const bar = $("splitBar");
+
+    const partsField = $("partsField");
+    const rangesField = $("rangesField");
+    const partsInput = $("splitParts");
+    const rangesInput = $("splitRanges");
+    const formatSel = $("splitFormat");
+    const bitrateSel = $("splitBitrate");
+    const bitrateField = $("splitBitrateField");
+
+    let currentFile = null;
+    let decodedBuffer = null;
+    let playerUrl = null;
+    const resultUrls = [];
+
+    function updateModeUI() {
+      const mode = document.querySelector('input[name="splitMode"]:checked').value;
+      partsField.classList.toggle("hidden", mode !== "equal");
+      rangesField.classList.toggle("hidden", mode !== "ranges");
+    }
+
+    document.querySelectorAll('input[name="splitMode"]').forEach((r) => {
+      r.addEventListener("change", updateModeUI);
+    });
+    updateModeUI();
+
+    function updateFormatUI() {
+      bitrateField.style.display = formatSel.value === "mp3" ? "" : "none";
+    }
+    formatSel.addEventListener("change", updateFormatUI);
+    updateFormatUI();
+
+    chooseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      input.click();
+    });
+
+    drop.addEventListener("click", (e) => {
+      if (e.target === chooseBtn) return;
+      input.click();
+    });
+
+    input.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove("dragover");
+      });
+    });
+
+    drop.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    async function setFile(file) {
+      currentFile = file;
+      decodedBuffer = null;
+      runBtn.disabled = true;
+      fileNameEl.textContent =
+        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      setStatus(statusEl, "Decoding audio...", "warn");
+      progress.classList.add("show");
+      bar.style.width = "10%";
+
+      try {
+        decodedBuffer = await decodeAudioFile(file);
+
+        if (playerUrl) URL.revokeObjectURL(playerUrl);
+        playerUrl = URL.createObjectURL(file);
+        player.src = playerUrl;
+        player.classList.remove("hidden");
+
+        bar.style.width = "100%";
+        runBtn.disabled = false;
+        setStatus(
+          statusEl,
+          "Loaded. Duration " + formatTime(decodedBuffer.duration) +
+          " • " + decodedBuffer.sampleRate + " Hz • " +
+          decodedBuffer.numberOfChannels + " channel(s).",
+          "ok"
+        );
+      } catch (err) {
+        console.error(err);
+        progress.classList.remove("show");
+        setStatus(statusEl, "Could not decode this file in your browser.", "err");
+      }
+    }
+
+    function clearResults() {
+      while (resultUrls.length) URL.revokeObjectURL(resultUrls.pop());
+      resultsEl.innerHTML = "";
+    }
+
+    clearBtn.addEventListener("click", () => {
+      clearResults();
+      setStatus(statusEl, "", "");
+      progress.classList.remove("show");
+      bar.style.width = "0%";
+    });
+
+    function buildRanges() {
+      const mode = document.querySelector('input[name="splitMode"]:checked').value;
+
+      if (mode === "equal") {
+        const parts = parseInt(partsInput.value, 10);
+        if (!parts || parts < 2 || parts > 50) {
+          throw new Error("Enter a number of parts between 2 and 50.");
+        }
+        const dur = decodedBuffer.duration;
+        const step = dur / parts;
+        const list = [];
+        for (let i = 0; i < parts; i++) {
+          const start = i * step;
+          const end = i === parts - 1 ? dur : (i + 1) * step;
+          list.push({ start: start, end: end });
+        }
+        return list;
+      }
+
+      const lines = rangesInput.value
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      if (!lines.length) throw new Error("Add at least one time range.");
+
+      const list = [];
+      for (const line of lines) {
+        const parts = line.split("-");
+        if (parts.length !== 2) {
+          throw new Error('Invalid range "' + line + '". Use start-end, e.g. 0:30-1:45');
+        }
+        const start = parseTime(parts[0]);
+        const end = parseTime(parts[1]);
+        if (isNaN(start) || isNaN(end)) {
+          throw new Error('Could not parse the range "' + line + '".');
+        }
+        if (end <= start) {
+          throw new Error('Range "' + line + '" ends before it starts.');
+        }
+        if (start >= decodedBuffer.duration) {
+          throw new Error('Range "' + line + '" starts past the end of the file.');
+        }
+        list.push({
+          start: start,
+          end: Math.min(end, decodedBuffer.duration)
+        });
+      }
+      return list;
+    }
+
+    runBtn.addEventListener("click", async () => {
+      if (!decodedBuffer) return;
+
+      let ranges;
+      try {
+        ranges = buildRanges();
+      } catch (err) {
+        setStatus(statusEl, err.message, "err");
+        return;
+      }
+
+      clearResults();
+      runBtn.disabled = true;
+      progress.classList.add("show");
+      bar.style.width = "0%";
+
+      const fmt = formatSel.value;
+      const kbps = parseInt(bitrateSel.value, 10);
+      const stem = baseName(currentFile.name);
+
+      try {
+        for (let i = 0; i < ranges.length; i++) {
+          const range = ranges[i];
+          const label = "Part " + (i + 1) + " of " + ranges.length;
+
+          setStatus(
+            statusEl,
+            label + " — " + formatTime(range.start) + " to " + formatTime(range.end) + "...",
+            "warn"
+          );
+
+          const slice = sliceBuffer(decodedBuffer, range.start, range.end);
+
+          let blob;
+          let ext;
+
+          if (fmt === "mp3") {
+            blob = await encodeMp3(slice, kbps, (p) => {
+              const overall = (i + p) / ranges.length;
+              bar.style.width = Math.round(overall * 100) + "%";
+            });
+            ext = "mp3";
+          } else {
+            blob = encodeWav(slice);
+            ext = "wav";
+          }
+
+          const filename =
+            stem + "_part" + String(i + 1).padStart(2, "0") + "." + ext;
+
+          addResult(filename, blob, range, label);
+          bar.style.width = Math.round(((i + 1) / ranges.length) * 100) + "%";
+
+          await new Promise((r) => setTimeout(r, 0));
+        }
+
+        setStatus(statusEl, "Finished. " + ranges.length + " file(s) ready to download.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(statusEl, "Splitting failed: " + err.message, "err");
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+
+    function addResult(filename, blob, range, label) {
+      const url = URL.createObjectURL(blob);
+      resultUrls.push(url);
+
+      const row = document.createElement("div");
+      row.className = "result-row";
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML =
+        "<strong>" + filename + "</strong>" +
+        "<small>" + label + " • " +
+        formatTime(range.start) + " to " + formatTime(range.end) +
+        " • " + (blob.size / 1024 / 1024).toFixed(2) + " MB</small>";
+
+      const link = document.createElement("a");
+      link.className = "btn primary small";
+      link.href = url;
+      link.download = filename;
+      link.textContent = "Download";
+
+      row.appendChild(meta);
+      row.appendChild(link);
+      resultsEl.appendChild(row);
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>

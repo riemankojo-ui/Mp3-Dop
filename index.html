@@ -288,7 +288,7 @@
 <div class="app">
   <header>
     <h1>MP3 Dop</h1>
-    <p>Tag, convert and split audio files entirely on your device. No internet required.</p>
+    <p>Tag, convert and split audio files entirely on your device. No internet required after first load.</p>
   </header>
 
   <nav class="tabs">
@@ -425,9 +425,10 @@
   </section>
 </div>
 
-<script src="jsmediatags.min.js"></script>
-<script src="browser-id3-writer.min.js"></script>
-<script src="lame.min.js"></script>
+<!-- Load libraries from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<script src="https://unpkg.com/browser-id3-writer@6.1.0/dist/browser-id3-writer.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
 
 <script>
   if ('serviceWorker' in navigator) {

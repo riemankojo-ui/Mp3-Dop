@@ -1,11 +1,12 @@
-const CACHE_NAME = 'mp3dop-v24';
-const LOCAL_ASSETS = [
+const CACHE_NAME = 'mp3dop-v25';
+const ASSETS = [
+  './',
   './index.html',
   './manifest.json',
   './icon.png',
-  './jsmediatags.min.js',
-  './browser-id3-writer.min.js',
-  './lame.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/browser-id3-writer/6.1.0/browser-id3-writer.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -13,7 +14,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
-        LOCAL_ASSETS.map((url) => {
+        ASSETS.map((url) => {
           return cache.add(url).catch((err) => {
             console.log('Failed to cache:', url, err);
           });
@@ -41,7 +42,7 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
 
       return fetch(event.request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
+        if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }

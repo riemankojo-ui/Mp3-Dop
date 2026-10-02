@@ -430,6 +430,12 @@
 <script src="lame.min.js"></script>
 
 <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+
+<script>
 (function () {
   "use strict";
 

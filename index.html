@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MP3 Dop</title>
 
-<!-- REQUIRED FOR PWABUILDER / ANDROID APK -->
 <link rel="manifest" href="manifest.json">
 
 <style>
@@ -298,7 +297,6 @@
     <button class="tab" data-tab="splitter">Audio Splitter</button>
   </nav>
 
-  <!-- ================= TAB 1: TAGGER ================= -->
   <section class="panel active" id="panel-tagger">
     <div class="drop" id="tagDrop">
       <input type="file" id="tagFileInput" accept=".mp3,audio/mpeg" hidden />
@@ -326,14 +324,8 @@
     </div>
 
     <div class="status" id="tagStatus"></div>
-
-    <p class="hint">
-      Browsers cannot overwrite files on disk, so the tagged file downloads as a new copy.
-      Existing ID3v2 tags are read and rewritten; cover art is replaced when you pick a new image.
-    </p>
   </section>
 
-  <!-- ================= TAB 2: CONVERTER ================= -->
   <section class="panel" id="panel-converter">
     <div class="drop" id="convDrop">
       <input type="file" id="convFileInput" accept="audio/*,.wav,.mp3,.ogg,.oga,.m4a,.aac,.flac,.webm" hidden />
@@ -350,7 +342,6 @@
           <option value="wav">WAV (lossless PCM)</option>
         </select>
       </label>
-
       <label class="field" id="convBitrateField">
         MP3 bitrate
         <select id="convBitrate">
@@ -361,7 +352,6 @@
           <option value="96">96 kbps</option>
         </select>
       </label>
-
       <label class="field">
         Channels
         <select id="convChannels">
@@ -379,14 +369,8 @@
 
     <div class="progress" id="convProgress"><div class="bar" id="convBar"></div></div>
     <div class="status" id="convStatus"></div>
-
-    <p class="hint">
-      Input decoding uses your device's built-in codecs. MP3, WAV, OGG and M4A/AAC generally work.
-      FLAC works on most modern Android versions. Files the browser cannot decode will report an error.
-    </p>
   </section>
 
-  <!-- ================= TAB 3: SPLITTER ================= -->
   <section class="panel" id="panel-splitter">
     <div class="drop" id="splitDrop">
       <input type="file" id="splitFileInput" accept="audio/*,.wav,.mp3,.ogg,.oga,.m4a,.aac,.flac,.webm" hidden />
@@ -408,12 +392,10 @@
         Number of parts
         <input type="number" id="splitParts" min="2" max="50" value="2" />
       </label>
-
       <label class="field hidden" id="rangesField" style="grid-column:1/-1">
         Time ranges (one per line, format start-end)
         <textarea id="splitRanges" placeholder="0:00-1:30&#10;1:30-3:00&#10;3:00-4:45"></textarea>
       </label>
-
       <label class="field">
         Output format
         <select id="splitFormat">
@@ -421,7 +403,6 @@
           <option value="wav">WAV (lossless PCM)</option>
         </select>
       </label>
-
       <label class="field" id="splitBitrateField">
         MP3 bitrate
         <select id="splitBitrate">
@@ -440,27 +421,13 @@
 
     <div class="progress" id="splitProgress"><div class="bar" id="splitBar"></div></div>
     <div class="status" id="splitStatus"></div>
-
     <div class="results" id="splitResults"></div>
-
-    <p class="hint">
-      Time format accepts <code>ss</code>, <code>mm:ss</code> or <code>hh:mm:ss</code>.
-      Each part is encoded separately, so long files with many parts may take a while.
-    </p>
   </section>
 </div>
 
-<!-- Libraries loaded from CDN, cached offline by sw.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@6.1.0/dist/browser-id3-writer.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
-
-<!-- Register Service Worker for offline use -->
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
+<script src="jsmediatags.min.js"></script>
+<script src="browser-id3-writer.min.js"></script>
+<script src="lame.min.js"></script>
 
 <script>
 (function () {
@@ -533,7 +500,7 @@
 
   function ensureLame() {
     if (typeof window.lamejs !== "undefined") return Promise.resolve();
-    return Promise.reject(new Error("MP3 encoder (lamejs) not loaded."));
+    return Promise.reject(new Error("MP3 encoder (lamejs) is not loaded."));
   }
 
   const LAME_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
@@ -795,7 +762,7 @@
       resetAll(false);
       setStatus(statusEl, "Reading tags...", "warn");
       if (typeof window.jsmediatags === "undefined") {
-        setStatus(statusEl, "Tag reader unavailable. You can still write new tags.", "warn");
+        setStatus(statusEl, "Tag reader unavailable.", "warn");
         return;
       }
       window.jsmediatags.read(file, {

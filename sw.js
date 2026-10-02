@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mp3dop-v25';
+const CACHE_NAME = 'mp3dop-v27';
 const ASSETS = [
   './',
   './index.html',
@@ -14,11 +14,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
-        ASSETS.map((url) => {
-          return cache.add(url).catch((err) => {
-            console.log('Failed to cache:', url, err);
-          });
-        })
+        ASSETS.map((url) => cache.add(url).catch((err) => console.log('Failed:', url)))
       );
     })
   );
@@ -36,11 +32,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-
       return fetch(event.request).then((response) => {
         if (response && response.status === 200) {
           const clone = response.clone();
@@ -48,9 +42,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+        if (event.request.mode === 'navigate') return caches.match('./index.html');
       });
     })
   );

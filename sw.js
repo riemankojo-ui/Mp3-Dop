@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mp3-dop-v1';
+const CACHE_NAME = 'mp3-dop-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -10,9 +10,26 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)));
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      // Use allSettled so a single failed CDN link doesn't break the whole app
+      return Promise.allSettled(
+        ASSETS.map(url => cache.add(url))
+      );
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('fetch', (e) => {
-  e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+  // Cache-First strategy: serve from cache immediately, fallback to network
+  e.respondWith(
+    caches.match(e.request).then((response) => {
+      return response || fetch(e.request);
+    })
+  );
 });

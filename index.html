@@ -450,20 +450,21 @@
   </section>
 </div>
 
-<!-- ============================================================
-     LOCAL LIBRARIES (offline) — these must exist in ./libs/
-     ============================================================ -->
-<script src="libs/jsmediatags.min.js"></script>
-<script src="libs/browser-id3-writer.min.js"></script>
-<script src="libs/lame.min.js"></script>
+<!-- Libraries loaded from CDN, cached offline by sw.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@6.1.0/dist/browser-id3-writer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
+
+<!-- Register Service Worker for offline use -->
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
 
 <script>
 (function () {
   "use strict";
-
-  /* =========================================================
-     SHARED HELPERS
-     ========================================================= */
 
   const $ = (id) => document.getElementById(id);
 
@@ -506,7 +507,7 @@
   function getAudioContext() {
     if (!sharedCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) throw new Error("Web Audio API is not supported in this browser.");
+      if (!AC) throw new Error("Web Audio API is not supported.");
       sharedCtx = new AC();
     }
     return sharedCtx;
@@ -514,7 +515,7 @@
 
   function newOfflineContext(channels, length, sampleRate) {
     const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    if (!OAC) throw new Error("OfflineAudioContext is not supported in this browser.");
+    if (!OAC) throw new Error("OfflineAudioContext is not supported.");
     return new OAC(channels, length, sampleRate);
   }
 
@@ -530,11 +531,9 @@
     });
   }
 
-  /* ---------- MP3 encoding (lamejs, loaded locally) ---------- */
-
   function ensureLame() {
     if (typeof window.lamejs !== "undefined") return Promise.resolve();
-    return Promise.reject(new Error("MP3 encoder (lamejs) is not loaded. Check libs/lame.min.js."));
+    return Promise.reject(new Error("MP3 encoder (lamejs) not loaded."));
   }
 
   const LAME_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
@@ -555,15 +554,12 @@
   function remixChannels(buffer, target) {
     const srcCh = buffer.numberOfChannels;
     if (target === "keep") return buffer;
-
     const want = target === "mono" ? 1 : 2;
     if (srcCh === want) return buffer;
-
     const length = Math.max(1, buffer.length);
     const sampleRate = buffer.sampleRate;
     const ctx = newOfflineContext(want, length, sampleRate);
     const out = ctx.createBuffer(want, length, sampleRate);
-
     if (want === 1) {
       const a = buffer.getChannelData(0);
       const b = srcCh > 1 ? buffer.getChannelData(1) : a;
@@ -590,23 +586,17 @@
 
   async function encodeMp3(audioBuffer, kbps, onProgress) {
     await ensureLame();
-
     let buffer = await normalizeSampleRate(audioBuffer);
     const channels = Math.min(Math.max(buffer.numberOfChannels, 1), 2);
     const sampleRate = buffer.sampleRate;
-
     if (buffer.length < 1) throw new Error("Audio is empty.");
-
     const encoder = new window.lamejs.Mp3Encoder(channels, sampleRate, kbps);
-
     const left = floatTo16(buffer.getChannelData(0));
     const right = channels === 2 ? floatTo16(buffer.getChannelData(1)) : null;
-
     const blockSize = 1152;
     const chunks = [];
     const total = left.length;
     let lastYield = 0;
-
     for (let i = 0; i < total; i += blockSize) {
       const l = left.subarray(i, i + blockSize);
       let encoded;
@@ -617,22 +607,17 @@
         encoded = encoder.encodeBuffer(l);
       }
       if (encoded.length > 0) chunks.push(new Int8Array(encoded));
-
       if (i - lastYield > blockSize * 400) {
         lastYield = i;
         if (onProgress) onProgress(i / total);
         await new Promise((r) => setTimeout(r, 0));
       }
     }
-
     const tail = encoder.flush();
     if (tail.length > 0) chunks.push(new Int8Array(tail));
-
     if (onProgress) onProgress(1);
     return new Blob(chunks, { type: "audio/mpeg" });
   }
-
-  /* ---------- WAV encoding ---------- */
 
   function writeAscii(view, offset, str) {
     for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
@@ -647,7 +632,6 @@
     const dataSize = length * blockAlign;
     const buffer = new ArrayBuffer(44 + dataSize);
     const view = new DataView(buffer);
-
     writeAscii(view, 0, "RIFF");
     view.setUint32(4, 36 + dataSize, true);
     writeAscii(view, 8, "WAVE");
@@ -661,10 +645,8 @@
     view.setUint16(34, 16, true);
     writeAscii(view, 36, "data");
     view.setUint32(40, dataSize, true);
-
     const chans = [];
     for (let c = 0; c < channels; c++) chans.push(audioBuffer.getChannelData(c));
-
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let c = 0; c < channels; c++) {
@@ -675,11 +657,8 @@
         offset += 2;
       }
     }
-
     return new Blob([buffer], { type: "audio/wav" });
   }
-
-  /* ---------- Buffer slicing ---------- */
 
   function sliceBuffer(buffer, startSec, endSec) {
     const sampleRate = buffer.sampleRate;
@@ -687,10 +666,8 @@
     const end = Math.min(buffer.length, Math.ceil(endSec * sampleRate));
     const length = Math.max(1, end - start);
     const channels = Math.min(Math.max(buffer.numberOfChannels, 1), 2);
-
     const ctx = newOfflineContext(channels, length, sampleRate);
     const out = ctx.createBuffer(channels, length, sampleRate);
-
     for (let c = 0; c < channels; c++) {
       const src = buffer.getChannelData(c);
       const dst = out.getChannelData(c);
@@ -716,10 +693,6 @@
     return name.replace(/\.[^./\\]+$/, "");
   }
 
-  /* =========================================================
-     TAB SWITCHING
-     ========================================================= */
-
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -730,10 +703,6 @@
     });
   });
 
-  /* =========================================================
-     TAB 1 — MP3 TAGGER
-     ========================================================= */
-
   (function initTagger() {
     const drop = $("tagDrop");
     const input = $("tagFileInput");
@@ -743,7 +712,6 @@
     const statusEl = $("tagStatus");
     const saveBtn = $("tagSaveBtn");
     const resetBtn = $("tagResetBtn");
-
     const title = $("fTitle");
     const artist = $("fArtist");
     const album = $("fAlbum");
@@ -754,7 +722,6 @@
     const comment = $("fComment");
     const coverInput = $("fCover");
     const coverPreview = $("coverPreview");
-
     let currentFile = null;
     let coverArrayBuffer = null;
     let coverMime = "image/jpeg";
@@ -780,7 +747,6 @@
     function resetAll(clearFile) {
       form.reset();
       clearCover();
-
       if (clearFile) {
         currentFile = null;
         fileNameEl.textContent = "";
@@ -790,36 +756,16 @@
       setStatus(statusEl, "", "");
     }
 
-    chooseBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      input.click();
-    });
-
-    drop.addEventListener("click", (e) => {
-      if (e.target === chooseBtn) return;
-      input.click();
-    });
-
-    input.addEventListener("change", (e) => {
-      if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
-    });
+    chooseBtn.addEventListener("click", (e) => { e.stopPropagation(); input.click(); });
+    drop.addEventListener("click", (e) => { if (e.target === chooseBtn) return; input.click(); });
+    input.addEventListener("change", (e) => { if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]); });
 
     ["dragenter", "dragover"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.add("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.add("dragover"); });
     });
-
     ["dragleave", "drop"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.remove("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("dragover"); });
     });
-
     drop.addEventListener("drop", (e) => {
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) loadFile(file);
@@ -838,26 +784,20 @@
     });
 
     async function loadFile(file) {
-      const looksMp3 =
-        /\.mp3$/i.test(file.name) || file.type === "audio/mpeg" || file.type === "audio/mp3";
-
+      const looksMp3 = /\.mp3$/i.test(file.name) || file.type === "audio/mpeg" || file.type === "audio/mp3";
       if (!looksMp3) {
         setStatus(statusEl, "That is not an MP3 file. Use the MP3 Converter tab instead.", "err");
         return;
       }
-
       currentFile = file;
-      fileNameEl.textContent =
-        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      fileNameEl.textContent = file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
       saveBtn.disabled = false;
       resetAll(false);
       setStatus(statusEl, "Reading tags...", "warn");
-
       if (typeof window.jsmediatags === "undefined") {
         setStatus(statusEl, "Tag reader unavailable. You can still write new tags.", "warn");
         return;
       }
-
       window.jsmediatags.read(file, {
         onSuccess: (tag) => {
           const t = tag.tags || {};
@@ -869,14 +809,12 @@
           genre.value = t.genre || "";
           track.value = t.track || "";
           comment.value = typeof t.comment === "string" ? t.comment : (t.comment && t.comment.text) || "";
-
           if (t.picture && t.picture.data) {
             const bytes = new Uint8Array(t.picture.data);
             coverArrayBuffer = bytes.buffer.slice(0);
             coverMime = t.picture.format || "image/jpeg";
             setCoverPreview(new Blob([bytes], { type: coverMime }));
           }
-
           setStatus(statusEl, "Tags loaded. Edit the fields and save.", "ok");
         },
         onError: () => {
@@ -887,19 +825,15 @@
 
     saveBtn.addEventListener("click", async () => {
       if (!currentFile) return;
-
       if (typeof window.ID3Writer === "undefined") {
-        setStatus(statusEl, "ID3 writer library is not loaded. Check libs/browser-id3-writer.min.js.", "err");
+        setStatus(statusEl, "ID3 writer library is not loaded.", "err");
         return;
       }
-
       saveBtn.disabled = true;
       setStatus(statusEl, "Writing tags...", "warn");
-
       try {
         const arrayBuffer = await readFileAsArrayBuffer(currentFile);
         const writer = new window.ID3Writer(arrayBuffer);
-
         const vTitle = title.value.trim();
         const vArtist = artist.value.trim();
         const vAlbum = album.value.trim();
@@ -908,39 +842,18 @@
         const vGenre = genre.value.trim();
         const vTrack = track.value.trim();
         const vComment = comment.value.trim();
-
         if (vTitle) writer.setFrame("TIT2", vTitle);
-        if (vArtist) {
-          writer.setFrame(
-            "TPE1",
-            vArtist.split(",").map((s) => s.trim()).filter(Boolean)
-          );
-        }
+        if (vArtist) writer.setFrame("TPE1", vArtist.split(",").map((s) => s.trim()).filter(Boolean));
         if (vAlbum) writer.setFrame("TALB", vAlbum);
         if (vAlbumArtist) writer.setFrame("TPE2", vAlbumArtist);
         if (vYear) writer.setFrame("TYER", vYear);
-        if (vGenre) {
-          writer.setFrame(
-            "TCON",
-            vGenre.split(",").map((s) => s.trim()).filter(Boolean)
-          );
-        }
+        if (vGenre) writer.setFrame("TCON", vGenre.split(",").map((s) => s.trim()).filter(Boolean));
         if (vTrack) writer.setFrame("TRCK", vTrack);
-        if (vComment) {
-          writer.setFrame("COMM", { description: "", text: vComment });
-        }
-        if (coverArrayBuffer) {
-          writer.setFrame("APIC", {
-            type: 3,
-            data: coverArrayBuffer,
-            description: "Cover"
-          });
-        }
-
+        if (vComment) writer.setFrame("COMM", { description: "", text: vComment });
+        if (coverArrayBuffer) writer.setFrame("APIC", { type: 3, data: coverArrayBuffer, description: "Cover" });
         const tagged = writer.addTag();
         const blob = new Blob([tagged], { type: "audio/mpeg" });
         const outName = (vTitle || baseName(currentFile.name)) + ".mp3";
-
         triggerDownload(blob, outName);
         setStatus(statusEl, "Done. Your tagged MP3 is downloading.", "ok");
       } catch (err) {
@@ -950,13 +863,8 @@
         saveBtn.disabled = false;
       }
     });
-
     resetBtn.addEventListener("click", () => resetAll(true));
   })();
-
-  /* =========================================================
-     TAB 2 — MP3 CONVERTER
-     ========================================================= */
 
   (function initConverter() {
     const drop = $("convDrop");
@@ -972,46 +880,22 @@
     const bitrateField = $("convBitrateField");
     const progress = $("convProgress");
     const bar = $("convBar");
-
     let currentFile = null;
 
-    function updateFormatUI() {
-      bitrateField.style.display = formatSel.value === "mp3" ? "" : "none";
-    }
-
+    function updateFormatUI() { bitrateField.style.display = formatSel.value === "mp3" ? "" : "none"; }
     formatSel.addEventListener("change", updateFormatUI);
     updateFormatUI();
 
-    chooseBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      input.click();
-    });
-
-    drop.addEventListener("click", (e) => {
-      if (e.target === chooseBtn) return;
-      input.click();
-    });
-
-    input.addEventListener("change", (e) => {
-      if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
-    });
+    chooseBtn.addEventListener("click", (e) => { e.stopPropagation(); input.click(); });
+    drop.addEventListener("click", (e) => { if (e.target === chooseBtn) return; input.click(); });
+    input.addEventListener("change", (e) => { if (e.target.files && e.target.files[0]) setFile(e.target.files[0]); });
 
     ["dragenter", "dragover"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.add("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.add("dragover"); });
     });
-
     ["dragleave", "drop"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.remove("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("dragover"); });
     });
-
     drop.addEventListener("drop", (e) => {
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) setFile(file);
@@ -1019,8 +903,7 @@
 
     function setFile(file) {
       currentFile = file;
-      fileNameEl.textContent =
-        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      fileNameEl.textContent = file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
       runBtn.disabled = false;
       progress.classList.remove("show");
       bar.style.width = "0%";
@@ -1039,27 +922,19 @@
 
     runBtn.addEventListener("click", async () => {
       if (!currentFile) return;
-
       runBtn.disabled = true;
       progress.classList.add("show");
       bar.style.width = "0%";
-
       try {
         setStatus(statusEl, "Decoding audio...", "warn");
         let buffer = await decodeAudioFile(currentFile);
-
         buffer = remixChannels(buffer, channelsSel.value);
-
         const fmt = formatSel.value;
-        let blob;
-        let ext;
-
+        let blob; let ext;
         if (fmt === "mp3") {
           const kbps = parseInt(bitrateSel.value, 10);
           setStatus(statusEl, "Encoding MP3 at " + kbps + " kbps...", "warn");
-          blob = await encodeMp3(buffer, kbps, (p) => {
-            bar.style.width = Math.round(p * 100) + "%";
-          });
+          blob = await encodeMp3(buffer, kbps, (p) => { bar.style.width = Math.round(p * 100) + "%"; });
           ext = "mp3";
         } else {
           setStatus(statusEl, "Writing WAV...", "warn");
@@ -1069,33 +944,19 @@
           bar.style.width = "100%";
           ext = "wav";
         }
-
         const name = baseName(currentFile.name) + "." + ext;
         triggerDownload(blob, name);
-
         const sizeMb = (blob.size / 1024 / 1024).toFixed(2);
-        setStatus(
-          statusEl,
-          "Done. " + name + " (" + sizeMb + " MB, " + formatTime(buffer.duration) + ") is downloading.",
-          "ok"
-        );
+        setStatus(statusEl, "Done. " + name + " (" + sizeMb + " MB, " + formatTime(buffer.duration) + ") is downloading.", "ok");
       } catch (err) {
         console.error(err);
-        setStatus(
-          statusEl,
-          "Conversion failed: " + err.message + " — the browser may not support this input format.",
-          "err"
-        );
+        setStatus(statusEl, "Conversion failed: " + err.message, "err");
         progress.classList.remove("show");
       } finally {
         runBtn.disabled = false;
       }
     });
   })();
-
-  /* =========================================================
-     TAB 3 — AUDIO SPLITTER
-     ========================================================= */
 
   (function initSplitter() {
     const drop = $("splitDrop");
@@ -1109,7 +970,6 @@
     const resultsEl = $("splitResults");
     const progress = $("splitProgress");
     const bar = $("splitBar");
-
     const partsField = $("partsField");
     const rangesField = $("rangesField");
     const partsInput = $("splitParts");
@@ -1117,7 +977,6 @@
     const formatSel = $("splitFormat");
     const bitrateSel = $("splitBitrate");
     const bitrateField = $("splitBitrateField");
-
     let currentFile = null;
     let decodedBuffer = null;
     let playerUrl = null;
@@ -1128,48 +987,23 @@
       partsField.classList.toggle("hidden", mode !== "equal");
       rangesField.classList.toggle("hidden", mode !== "ranges");
     }
-
-    document.querySelectorAll('input[name="splitMode"]').forEach((r) => {
-      r.addEventListener("change", updateModeUI);
-    });
+    document.querySelectorAll('input[name="splitMode"]').forEach((r) => { r.addEventListener("change", updateModeUI); });
     updateModeUI();
 
-    function updateFormatUI() {
-      bitrateField.style.display = formatSel.value === "mp3" ? "" : "none";
-    }
+    function updateFormatUI() { bitrateField.style.display = formatSel.value === "mp3" ? "" : "none"; }
     formatSel.addEventListener("change", updateFormatUI);
     updateFormatUI();
 
-    chooseBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      input.click();
-    });
-
-    drop.addEventListener("click", (e) => {
-      if (e.target === chooseBtn) return;
-      input.click();
-    });
-
-    input.addEventListener("change", (e) => {
-      if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
-    });
+    chooseBtn.addEventListener("click", (e) => { e.stopPropagation(); input.click(); });
+    drop.addEventListener("click", (e) => { if (e.target === chooseBtn) return; input.click(); });
+    input.addEventListener("change", (e) => { if (e.target.files && e.target.files[0]) setFile(e.target.files[0]); });
 
     ["dragenter", "dragover"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.add("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.add("dragover"); });
     });
-
     ["dragleave", "drop"].forEach((evt) => {
-      drop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        drop.classList.remove("dragover");
-      });
+      drop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("dragover"); });
     });
-
     drop.addEventListener("drop", (e) => {
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) setFile(file);
@@ -1179,29 +1013,19 @@
       currentFile = file;
       decodedBuffer = null;
       runBtn.disabled = true;
-      fileNameEl.textContent =
-        file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
+      fileNameEl.textContent = file.name + "  (" + (file.size / 1024 / 1024).toFixed(2) + " MB)";
       setStatus(statusEl, "Decoding audio...", "warn");
       progress.classList.add("show");
       bar.style.width = "10%";
-
       try {
         decodedBuffer = await decodeAudioFile(file);
-
         if (playerUrl) URL.revokeObjectURL(playerUrl);
         playerUrl = URL.createObjectURL(file);
         player.src = playerUrl;
         player.classList.remove("hidden");
-
         bar.style.width = "100%";
         runBtn.disabled = false;
-        setStatus(
-          statusEl,
-          "Loaded. Duration " + formatTime(decodedBuffer.duration) +
-          " • " + decodedBuffer.sampleRate + " Hz • " +
-          decodedBuffer.numberOfChannels + " channel(s).",
-          "ok"
-        );
+        setStatus(statusEl, "Loaded. Duration " + formatTime(decodedBuffer.duration) + " • " + decodedBuffer.sampleRate + " Hz • " + decodedBuffer.numberOfChannels + " channel(s).", "ok");
       } catch (err) {
         console.error(err);
         progress.classList.remove("show");
@@ -1223,12 +1047,9 @@
 
     function buildRanges() {
       const mode = document.querySelector('input[name="splitMode"]:checked').value;
-
       if (mode === "equal") {
         const parts = parseInt(partsInput.value, 10);
-        if (!parts || parts < 2 || parts > 50) {
-          throw new Error("Enter a number of parts between 2 and 50.");
-        }
+        if (!parts || parts < 2 || parts > 50) throw new Error("Enter a number of parts between 2 and 50.");
         const dur = decodedBuffer.duration;
         const step = dur / parts;
         const list = [];
@@ -1239,75 +1060,40 @@
         }
         return list;
       }
-
-      const lines = rangesInput.value
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
-
+      const lines = rangesInput.value.split("\n").map((l) => l.trim()).filter(Boolean);
       if (!lines.length) throw new Error("Add at least one time range.");
-
       const list = [];
       for (const line of lines) {
         const parts = line.split("-");
-        if (parts.length !== 2) {
-          throw new Error('Invalid range "' + line + '". Use start-end, e.g. 0:30-1:45');
-        }
+        if (parts.length !== 2) throw new Error('Invalid range "' + line + '". Use start-end, e.g. 0:30-1:45');
         const start = parseTime(parts[0]);
         const end = parseTime(parts[1]);
-        if (isNaN(start) || isNaN(end)) {
-          throw new Error('Could not parse the range "' + line + '".');
-        }
-        if (end <= start) {
-          throw new Error('Range "' + line + '" ends before it starts.');
-        }
-        if (start >= decodedBuffer.duration) {
-          throw new Error('Range "' + line + '" starts past the end of the file.');
-        }
-        list.push({
-          start: start,
-          end: Math.min(end, decodedBuffer.duration)
-        });
+        if (isNaN(start) || isNaN(end)) throw new Error('Could not parse the range "' + line + '".');
+        if (end <= start) throw new Error('Range "' + line + '" ends before it starts.');
+        if (start >= decodedBuffer.duration) throw new Error('Range "' + line + '" starts past the end of the file.');
+        list.push({ start: start, end: Math.min(end, decodedBuffer.duration) });
       }
       return list;
     }
 
     runBtn.addEventListener("click", async () => {
       if (!decodedBuffer) return;
-
       let ranges;
-      try {
-        ranges = buildRanges();
-      } catch (err) {
-        setStatus(statusEl, err.message, "err");
-        return;
-      }
-
+      try { ranges = buildRanges(); } catch (err) { setStatus(statusEl, err.message, "err"); return; }
       clearResults();
       runBtn.disabled = true;
       progress.classList.add("show");
       bar.style.width = "0%";
-
       const fmt = formatSel.value;
       const kbps = parseInt(bitrateSel.value, 10);
       const stem = baseName(currentFile.name);
-
       try {
         for (let i = 0; i < ranges.length; i++) {
           const range = ranges[i];
           const label = "Part " + (i + 1) + " of " + ranges.length;
-
-          setStatus(
-            statusEl,
-            label + " — " + formatTime(range.start) + " to " + formatTime(range.end) + "...",
-            "warn"
-          );
-
+          setStatus(statusEl, label + " — " + formatTime(range.start) + " to " + formatTime(range.end) + "...", "warn");
           const slice = sliceBuffer(decodedBuffer, range.start, range.end);
-
-          let blob;
-          let ext;
-
+          let blob; let ext;
           if (fmt === "mp3") {
             blob = await encodeMp3(slice, kbps, (p) => {
               const overall = (i + p) / ranges.length;
@@ -1318,16 +1104,11 @@
             blob = encodeWav(slice);
             ext = "wav";
           }
-
-          const filename =
-            stem + "_part" + String(i + 1).padStart(2, "0") + "." + ext;
-
+          const filename = stem + "_part" + String(i + 1).padStart(2, "0") + "." + ext;
           addResult(filename, blob, range, label);
           bar.style.width = Math.round(((i + 1) / ranges.length) * 100) + "%";
-
           await new Promise((r) => setTimeout(r, 0));
         }
-
         setStatus(statusEl, "Finished. " + ranges.length + " file(s) ready to download.", "ok");
       } catch (err) {
         console.error(err);
@@ -1340,24 +1121,16 @@
     function addResult(filename, blob, range, label) {
       const url = URL.createObjectURL(blob);
       resultUrls.push(url);
-
       const row = document.createElement("div");
       row.className = "result-row";
-
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.innerHTML =
-        "<strong>" + filename + "</strong>" +
-        "<small>" + label + " • " +
-        formatTime(range.start) + " to " + formatTime(range.end) +
-        " • " + (blob.size / 1024 / 1024).toFixed(2) + " MB</small>";
-
+      meta.innerHTML = "<strong>" + filename + "</strong>" + "<small>" + label + " • " + formatTime(range.start) + " to " + formatTime(range.end) + " • " + (blob.size / 1024 / 1024).toFixed(2) + " MB</small>";
       const link = document.createElement("a");
       link.className = "btn primary small";
       link.href = url;
       link.download = filename;
       link.textContent = "Download";
-
       row.appendChild(meta);
       row.appendChild(link);
       resultsEl.appendChild(row);

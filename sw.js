@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mp3dop-v20';
+const CACHE_NAME = 'mp3dop-v24';
 const LOCAL_ASSETS = [
   './index.html',
   './manifest.json',
@@ -8,12 +8,10 @@ const LOCAL_ASSETS = [
   './lame.min.js'
 ];
 
-// Install: cache all local files immediately
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Cache each file individually so one failure doesn't break everything
       return Promise.all(
         LOCAL_ASSETS.map((url) => {
           return cache.add(url).catch((err) => {
@@ -25,7 +23,6 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -36,9 +33,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: cache-first, network fallback
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
@@ -46,14 +41,12 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
 
       return fetch(event.request).then((response) => {
-        // Cache successful same-origin responses
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // If offline and not cached, try returning index.html for navigation
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }

@@ -14,13 +14,21 @@
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: radial-gradient(1200px 600px at 50% -10%, #1b2b4d 0%, var(--bg-0) 60%);
-    color: var(--text); min-height: 100vh; padding: 28px 18px 60px; }
+    color: var(--text); min-height: 100vh; padding: 0 0 110px; }
   .app { width: 100%; max-width: 960px; margin: 0 auto; background: rgba(17, 28, 51, 0.9);
-    border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 30px 70px rgba(0,0,0,0.5); overflow: hidden; }
-  header { padding: 26px 26px 18px; border-bottom: 1px solid var(--line); }
+    border: 0; border-radius: 0; box-shadow: none; background: transparent; max-width: none; min-height: 100vh; overflow: hidden; }
+  header { display: none; }
+  .panel .drop { padding: 18px; }
+  .drop > p:not(.filename) { display: none; }
+  .drop .btn.primary { width: 64px; height: 64px; padding: 0; border-radius: 50%; font-size: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .drop .btn.primary::before { content: "+"; font-size: 2.2rem; font-weight: 400; line-height: 1; }
   header h1 { margin: 0 0 6px; font-size: 1.55rem; letter-spacing: -0.4px; }
   header p { margin: 0; color: var(--muted); font-size: 0.9rem; }
-  .tabs { display: flex; gap: 4px; padding: 0 18px; background: rgba(11,17,32,0.5); border-bottom: 1px solid var(--line); }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; justify-content: center; gap: 6px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: rgba(11,17,32,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line); }
+  .tabs .tab { flex: 1; max-width: 200px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border: 0; border-radius: 14px; font-size: 0.72rem; }
+  .tabs .tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabs .tab:hover { background: rgba(76,194,255,0.08); }
+  .tabs .tab.active { background: rgba(76,194,255,0.14); color: var(--accent); }
   .tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent;
     color: var(--muted); font: inherit; font-size: 0.92rem; font-weight: 600; padding: 14px 16px;
     cursor: pointer; transition: color .15s, border-color .15s, background .15s; border-radius: 8px 8px 0 0; }
@@ -42,7 +50,11 @@
   .btn.primary { background: var(--accent); color: var(--accent-ink); }
   .btn.ghost { background: transparent; border: 1px solid var(--line); }
   .btn.small { padding: 7px 12px; font-size: 0.8rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+  .grid label.field { gap: 4px; font-size: 0.74rem; }
+  .grid input[type="text"], .grid input[type="number"], .grid select { padding: 7px 10px; font-size: 0.82rem; }
+  .cover-add { cursor: pointer; align-items: center; justify-content: center; }
+  .cover-add .plus { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 2.2rem; display: flex; align-items: center; justify-content: center; }
   label.field { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; color: var(--muted); font-weight: 600; }
   input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px;
     border-radius: 9px; border: 1px solid var(--line); background: #0d1729; color: var(--text);
@@ -71,6 +83,17 @@
   .result-row .meta small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
   .section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 700; margin: 22px 0 0; }
   .hidden { display: none !important; }
+  #splitWaveBox { margin-top: 14px; }
+  #splitWave { display: block; width: 100%; height: 80px; border-radius: 10px; background: #0d1729; border: 1px solid var(--line); touch-action: none; cursor: pointer; }
+  #splitHint { margin-top: 8px; min-height: 0; font-size: 0.8rem; }
+  .pair { display: flex; justify-content: center; gap: 28px; }
+  .pick { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); }
+  .pick small { font-size: 0.74rem; font-weight: 600; }
+  .cover-add .plus { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { padding: 0; }
+  .app { height: 100dvh; min-height: 0; display: flex; flex-direction: column; }
+  .panel.active { display: block; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 110px; }
   @media (max-width: 560px) { .tabs { padding: 0 8px; } .tab { padding: 12px 10px; font-size: 0.82rem; }
     .panel { padding: 20px 16px 26px; } }
 </style>
@@ -82,16 +105,16 @@
     <p>Tag, convert and split audio files entirely on your device.</p>
   </header>
   <nav class="tabs">
-    <button class="tab active" data-tab="tagger">MP3 Tagger</button>
-    <button class="tab" data-tab="converter">MP3 Converter</button>
-    <button class="tab" data-tab="splitter">Audio Splitter</button>
+    <button class="tab active" data-tab="tagger"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>MP3 Tagger</button>
+    <button class="tab" data-tab="converter"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>MP3 Converter</button>
+    <button class="tab" data-tab="splitter"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88"/><path d="M14.47 14.48L20 20"/><path d="M8.12 8.12L12 12"/></svg>Audio Splitter</button>
   </nav>
 
   <section class="panel active" id="panel-tagger">
     <div class="drop" id="tagDrop">
       <input type="file" id="tagFileInput" accept=".mp3,audio/mpeg" hidden />
       <p>Drag and drop an MP3 here</p>
-      <button type="button" class="btn primary" id="tagChooseBtn">Choose MP3 file</button>
+      <div class="pair"><div class="pick"><button type="button" class="btn primary" id="tagChooseBtn">Choose MP3 file</button><small>Audio</small></div><label class="pick cover-add" onclick="event.stopPropagation()"><span class="plus">+</span><small>Cover</small><input type="file" id="fCover" accept="image/*" hidden /></label></div>
       <p class="filename" id="tagFileName"></p>
     </div>
     <form id="tagForm" class="grid" autocomplete="off">
@@ -103,11 +126,10 @@
       <label class="field">Genre<input type="text" id="fGenre" /></label>
       <label class="field">Track<input type="text" id="fTrack" placeholder="e.g. 3/12" /></label>
       <label class="field">Comment<input type="text" id="fComment" /></label>
-      <label class="field">Cover Art<input type="file" id="fCover" accept="image/*" /></label>
       <div class="cover-wrap"><img id="coverPreview" alt="Cover preview" /></div>
     </form>
     <div class="actions">
-      <button type="button" class="btn primary" id="tagSaveBtn" disabled>Save and download tagged MP3</button>
+      <button type="button" class="btn primary" id="tagSaveBtn" disabled>Save</button>
       <button type="button" class="btn ghost" id="tagResetBtn">Reset</button>
     </div>
     <div class="status" id="tagStatus"></div>
@@ -160,10 +182,10 @@
       <p class="filename" id="splitFileName"></p>
     </div>
     <audio id="splitPlayer" controls class="hidden"></audio>
-    <div class="section-title">Split mode</div>
+    <div class="hidden" id="splitWaveBox"><canvas id="splitWave" height="80"></canvas><p class="status" id="splitHint"></p></div>
     <div class="radio-row">
-      <label><input type="radio" name="splitMode" value="equal" checked /> Equal parts</label>
-      <label><input type="radio" name="splitMode" value="ranges" /> Custom time ranges</label>
+      <label><input type="radio" name="splitMode" value="split" checked /> Split</label>
+      <label><input type="radio" name="splitMode" value="crop" /> Crop</label>
     </div>
     <div class="grid">
       <label class="field" id="partsField">Number of parts
@@ -628,6 +650,79 @@
     const partsInput = $("splitParts"), rangesInput = $("splitRanges");
     const formatSel = $("splitFormat"), bitrateSel = $("splitBitrate"), bitrateField = $("splitBitrateField");
     let currentFile = null, decodedBuffer = null, playerUrl = null;
+    const wave = $("splitWave"), wctx = wave.getContext("2d"), waveBox = $("splitWaveBox"), hintEl = $("splitHint");
+    let cuts = [], cropA = 0, cropB = 0, peaks = null, dragging = null;
+    function modeNow() { return document.querySelector('input[name="splitMode"]:checked').value; }
+    function resetWave() {
+      waveBox.classList.remove("hidden");
+      const w = Math.max(300, Math.floor(waveBox.clientWidth));
+      wave.width = w; wave.height = 80;
+      const data = decodedBuffer.getChannelData(0), n = data.length;
+      const bs = Math.max(1, Math.floor(n / w)), stride = Math.max(1, Math.floor(bs / 40));
+      peaks = new Float32Array(w);
+      for (let i = 0; i < w; i++) {
+        let m = 0;
+        for (let j = i * bs; j < Math.min(n, (i + 1) * bs); j += stride) { const v = Math.abs(data[j]); if (v > m) m = v; }
+        peaks[i] = m;
+      }
+      cuts = []; cropA = 0; cropB = decodedBuffer.duration;
+      updateWaveUI();
+    }
+    function updateWaveUI() {
+      const crop = modeNow() === "crop";
+      runBtn.textContent = crop ? "Crop audio" : "Split audio";
+      if (!peaks) return;
+      hintEl.textContent = crop ? "Crop: " + formatTime(cropA) + " to " + formatTime(cropB) + ". Drag the handles." : (cuts.length ? (cuts.length + 1) + " parts. Tap a line to remove it." : "Tap the waveform to add split points.");
+      drawWave();
+    }
+    function drawWave() {
+      const w = wave.width, h = wave.height, dur = decodedBuffer.duration, crop = modeNow() === "crop";
+      const xa = cropA / dur * w, xb = cropB / dur * w;
+      wctx.clearRect(0, 0, w, h);
+      for (let i = 0; i < w; i++) {
+        wctx.fillStyle = (!crop || (i >= xa && i <= xb)) ? "#4cc2ff" : "#2b3a55";
+        const bh = Math.max(1, peaks[i] * h * 0.9);
+        wctx.fillRect(i, (h - bh) / 2, 1, bh);
+      }
+      wctx.fillStyle = "#fbbf24";
+      if (crop) { wctx.fillRect(xa - 1, 0, 3, h); wctx.fillRect(xb - 2, 0, 3, h); }
+      else { cuts.forEach((c) => wctx.fillRect(Math.round(c / dur * w) - 1, 0, 2, h)); }
+    }
+    function waveSec(e) {
+      const r = wave.getBoundingClientRect();
+      return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * decodedBuffer.duration;
+    }
+    function moveHandle(t) {
+      if (dragging === "a") cropA = Math.min(t, cropB - 0.1); else cropB = Math.max(t, cropA + 0.1);
+      cropA = Math.max(0, cropA); cropB = Math.min(decodedBuffer.duration, cropB);
+      updateWaveUI();
+    }
+    wave.addEventListener("pointerdown", (e) => {
+      if (!decodedBuffer) return;
+      e.preventDefault(); wave.setPointerCapture(e.pointerId);
+      const t = waveSec(e);
+      if (modeNow() === "crop") {
+        dragging = Math.abs(t - cropA) <= Math.abs(t - cropB) ? "a" : "b";
+        moveHandle(t);
+      } else {
+        const tol = 14 / wave.getBoundingClientRect().width * decodedBuffer.duration;
+        const idx = cuts.findIndex((c) => Math.abs(c - t) < tol);
+        if (idx >= 0) cuts.splice(idx, 1); else cuts.push(t);
+        cuts.sort((x, y) => x - y);
+        updateWaveUI();
+      }
+    });
+    wave.addEventListener("pointermove", (e) => { if (dragging && decodedBuffer) moveHandle(waveSec(e)); });
+    ["pointerup", "pointercancel"].forEach((evt) => wave.addEventListener(evt, () => { dragging = null; }));
+    document.querySelectorAll('input[name="splitMode"]').forEach((r) => r.addEventListener("change", updateWaveUI));
+    function buildWaveRanges() {
+      const dur = decodedBuffer.duration;
+      if (modeNow() === "crop") return [{ start: cropA, end: cropB }];
+      if (!cuts.length) throw new Error("Tap the waveform to add at least one split point.");
+      const pts = [0].concat(cuts, [dur]), list = [];
+      for (let i = 0; i < pts.length - 1; i++) if (pts[i + 1] - pts[i] > 0.05) list.push({ start: pts[i], end: pts[i + 1] });
+      return list;
+    }
     const resultUrls = [];
     function updateModeUI() {
       const mode = document.querySelector('input[name="splitMode"]:checked').value;
@@ -660,7 +755,7 @@
         decodedBuffer = await decodeAudioFile(file);
         if (playerUrl) URL.revokeObjectURL(playerUrl);
         playerUrl = URL.createObjectURL(file);
-        player.src = playerUrl; player.classList.remove("hidden");
+        player.src = playerUrl; player.classList.remove("hidden"); resetWave();
         bar.style.width = "100%"; runBtn.disabled = false;
         setStatus(statusEl, "Loaded. Duration " + formatTime(decodedBuffer.duration) + ".", "ok");
       } catch (err) {
@@ -705,7 +800,7 @@
     runBtn.addEventListener("click", async () => {
       if (!decodedBuffer) return;
       let ranges;
-      try { ranges = buildRanges(); } catch (err) { setStatus(statusEl, err.message, "err"); return; }
+      try { ranges = buildWaveRanges(); } catch (err) { setStatus(statusEl, err.message, "err"); return; }
       clearResults(); runBtn.disabled = true;
       progress.classList.add("show"); bar.style.width = "0%";
       const fmt = formatSel.value, kbps = parseInt(bitrateSel.value, 10);

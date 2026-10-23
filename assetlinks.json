@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.mp3_dop.twa",
+        "sha256_cert_fingerprints": ["E7:8B:9F:5D:A7:59:31:28:9C:E0:DE:66:02:9C:B5:8B:A8:AE:75:73:6B:65:76:FB:4A:16:A1:A9:D6:1E:06:98"]
+      }
+    }]

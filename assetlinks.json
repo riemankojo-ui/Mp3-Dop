@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "app.vercel.mp3_dop.twa",
-        "sha256_cert_fingerprints": ["E7:8B:9F:5D:A7:59:31:28:9C:E0:DE:66:02:9C:B5:8B:A8:AE:75:73:6B:65:76:FB:4A:16:A1:A9:D6:1E:06:98"]
+        "sha256_cert_fingerprints": ["05:B9:12:33:F4:81:86:33:87:5B:50:17:5D:F5:CB:D3:32:76:4A:FE:2F:51:13:C8:82:1E:FD:40:26:6D:8D:C4"]
       }
     }]

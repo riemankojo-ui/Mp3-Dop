@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MP3 Dop</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b1120">
+<meta name="theme-color" content="#000000">
 <style>
   :root {
     --bg-0: #0b1120; --bg-1: #111c33; --card: #16233d; --line: #2b3a55;
@@ -95,6 +95,11 @@
   body { padding: 0; }
   .app { height: 100dvh; min-height: 0; display: flex; flex-direction: column; }
   .panel.active { display: block; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 110px; }
+  :root { --bg-0: #000; --bg-1: #000; --card: #000; --line: #262626; }
+  html, body { background: radial-gradient(900px 520px at 50% -8%, #141922 0%, #06080b 55%, #000 100%) fixed; }
+  .drop, .result-row, .progress, #splitWave, input[type="text"], input[type="number"], input[type="file"], select, textarea { background: rgba(255,255,255,0.04); }
+  .tabs { background: #000; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .btn { background: #1a1a1a; }
   @media (max-width: 560px) { .tabs { padding: 0 8px; } .tab { padding: 12px 10px; font-size: 0.82rem; }
     .panel { padding: 20px 16px 26px; } }
 </style>

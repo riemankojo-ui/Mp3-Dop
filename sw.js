@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mp3dop-v32';
+const CACHE_NAME = 'mp3dop-v31';
 const ASSETS = [
   './',
   './index.html',

@@ -1,0 +1,71 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Copy web files to www
+        run: |
+          mkdir -p www
+          cp index.html manifest.json sw.js icon.png jsmediatags.min.js lame.min.js browser-id3-writer.min.js www/
+
+      - name: Add Android project
+        run: npx cap add android
+
+      - name: Add audio permissions
+        run: |
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/><uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/><uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/></manifest>#' android/app/src/main/AndroidManifest.xml
+
+      - name: Ask media permissions at launch
+        run: |
+          F=$(find android/app/src/main/java -name MainActivity.java)
+          PKG=$(grep -m1 '^package' $F)
+          cat > $F <<EOF
+          $PKG
+          import android.Manifest;
+          import android.os.Build;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              if (Build.VERSION.SDK_INT >= 33) {
+                requestPermissions(new String[]{Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_IMAGES}, 1);
+              } else {
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
+              }
+            }
+          }
+          EOF
+
+      - name: Sync
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mp3-dop-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

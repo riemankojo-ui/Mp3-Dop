@@ -697,8 +697,42 @@ function homeTile(s) {
     if (a && navStack[navStack.length - 1] !== a.id) navStack.push(a.id);
     if (a && a.id !== window.__lastPanel) { window.__lastPanel = a.id; a.classList.remove("panel-enter"); void a.offsetWidth; a.classList.add("panel-enter"); setTimeout(function () { a.classList.remove("panel-enter"); }, 320); }
   }).observe(document.querySelector(".app"), { subtree: true, attributes: true, attributeFilter: ["class"] });
-  document.addEventListener("scroll", function (e) { var t = e.target, b = document.querySelector(".back-home"); if (b && t && t.classList && t.classList.contains("panel")) b.style.transform = "translateY(" + (-t.scrollTop) + "px)"; }, true);
+  document.addEventListener("scroll", function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains("panel")) return; var b = document.querySelector(".back-home"), h = t.querySelector(".songs-hdr, .songs-head"), y = Math.max(0, t.scrollTop), m = Math.min(y, 52), d = y - (t.__lastY || 0), s = t.__e || 0; t.__lastY = y; s = Math.max(0, Math.min(m, s - d)); t.__e = s; if (h) { if (h.style.top) h.style.removeProperty("top"); h.style.willChange = "transform"; h.style.transform = "translate3d(0," + s + "px,0)"; } if (b) { b.style.willChange = "transform"; b.style.transition = "none"; b.style.transform = "translate3d(0," + (-(m - s)) + "px,0)"; } }, { capture: true, passive: true });
   tabs.forEach(function (t) { t.addEventListener("click", function () { var b = document.querySelector(".back-home"); if (b) b.style.transform = ""; }); });
+  (function () {
+    var st = document.createElement("style");
+    st.textContent = ".sm-ov{position:fixed;inset:0;z-index:10000}.sm-menu{position:fixed;right:14px;z-index:10001;min-width:180px;background:#16171b;border:1px solid #3a3d45;border-radius:0;box-shadow:0 8px 24px rgba(0,0,0,.5)}.sm-menu button{display:block;width:100%;appearance:none;border:0;border-bottom:1px solid #2e2f36;background:transparent;color:#fff;font:inherit;font-size:.92rem;font-weight:600;padding:13px 16px;text-align:left;cursor:pointer;border-radius:0}.sm-menu button:last-child{border-bottom:0}.sm-menu button:active{background:#23242a}.sm-menu .sm-del{color:#ff6b6b}.sm-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:10002;background:#2b2d33;color:#fff;padding:10px 16px;font-size:.85rem;border:1px solid #3a3d45}";
+    document.head.appendChild(st);
+    function toast(m) { var d = document.createElement("div"); d.className = "sm-toast"; d.textContent = m; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2200); }
+    function fsp() { var C = window.Capacitor; return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.Filesystem; }
+    function close() { document.querySelectorAll(".sm-ov,.sm-menu").forEach(function (x) { x.remove(); }); }
+    function menu(row, y) {
+      close();
+      var ov = document.createElement("div"); ov.className = "sm-ov"; ov.onclick = close;
+      var m = document.createElement("div"); m.className = "sm-menu";
+      m.innerHTML = '<button data-a="rename">Rename</button><button data-a="move">Move</button><button data-a="ring">Add to Ringtone</button><button data-a="del" class="sm-del">Delete</button>';
+      m.style.top = Math.max(10, Math.min(y, window.innerHeight - 220)) + "px";
+      m.onclick = function (e) { var b = e.target.closest("button"); if (!b) return; close(); act(b.dataset.a, row); };
+      document.body.appendChild(ov); document.body.appendChild(m);
+    }
+    async function act(a, row) {
+      if (a === "ring") { toast("Ringtone needs a small Android plugin"); return; }
+      var f = row.__file, P = fsp();
+      if (!f || !P) { toast("Not a phone file"); return; }
+      var dir = f.path.indexOf("/") > -1 ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+      var ext = f.name.indexOf(".") > -1 ? f.name.slice(f.name.lastIndexOf(".")) : "";
+      try {
+        if (a === "del") { if (!confirm("Delete " + f.name + "?")) return; await P.deleteFile({ path: f.path, directory: "EXTERNAL_STORAGE" }); row.remove(); toast("Deleted"); }
+        else if (a === "rename") { var n = prompt("New name", f.name.replace(/\.[^.]+$/, "")); if (!n || !n.trim()) return; var to = (dir ? dir + "/" : "") + n.trim() + ext; await P.rename({ from: f.path, to: to, directory: "EXTERNAL_STORAGE", toDirectory: "EXTERNAL_STORAGE" }); f.path = to; f.name = n.trim() + ext; f.uri = ""; row.querySelector(".song-name").textContent = n.trim(); toast("Renamed"); }
+        else if (a === "move") { var d = prompt("Move to folder (Music, Download, Documents, Podcasts)", "Music"); if (!d || !d.trim()) return; var to2 = d.trim().replace(/^\/+|\/+$/g, "") + "/" + f.name; await P.rename({ from: f.path, to: to2, directory: "EXTERNAL_STORAGE", toDirectory: "EXTERNAL_STORAGE" }); f.path = to2; f.uri = ""; toast("Moved to " + d.trim()); }
+      } catch (e) { toast("Failed: " + (e && e.message ? e.message : "error")); }
+    }
+    document.addEventListener("click", function (e) {
+      var r = e.target.closest && e.target.closest("#panel-songs .home-song-row, .songs-sec .home-song-row");
+      if (!r || r.id === "songsMore" || e.clientX < window.innerWidth - 64) return;
+      e.stopPropagation(); e.preventDefault(); menu(r, e.clientY);
+    }, true);
+  })();
   (function () {
     var C = window.Capacitor, A = C && C.Plugins && C.Plugins.App;
     if (!A || !A.addListener) return;
@@ -1211,7 +1245,7 @@ btnNativeGallery.addEventListener("click", () => {
       ".hb-btn svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}" +
       ".hb-pro{height:36px;padding:0 18px;border:0;border-radius:18px;background:linear-gradient(135deg,#fde68a,#f59e0b);color:#1c1d21;font:inherit;font-weight:800;font-size:.9rem;letter-spacing:.3px;cursor:pointer}" +
       ".hb-btn:active,.hb-pro:active{transform:scale(.94)}" +
-      ".songs-hdr{top:-52px!important}" +
+      ".songs-hdr{top:-52px!important}.songs-hdr .hb-btn{border:0!important;background:transparent!important}.app,.panel,.home-song-list,#panel-songs,#panel-videos,#panel-files{overscroll-behavior:none!important;overscroll-behavior-y:none!important;-webkit-overflow-scrolling:auto}" +
       "#panel-videos .songs-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between}#panel-videos .songs-head input{display:none;flex:0 0 100%;height:42px;margin:12px 0 0;padding:0 14px;border:0;border-radius:14px;background:#1a1b20;color:#fff;font:inherit;line-height:normal}#panel-videos .songs-head.show-search input{display:block}" +
       "#panel-videos,#panel-files{padding-top:0!important}#panel-videos .songs-head,#panel-files .songs-head{position:sticky;top:-52px;z-index:55;margin:0 -16px 12px;padding:66px 16px 14px;line-height:40px;background:#23242a;border-radius:0 0 24px 24px;box-shadow:0 8px 24px rgba(0,0,0,.28)}" +
       "#panel-songs{padding-top:0!important}.songs-hdr{position:sticky;top:0;z-index:55;flex-wrap:wrap;margin:0 -16px;padding:66px 16px 14px;background:#23242a;border-radius:0 0 24px 24px;box-shadow:0 8px 24px rgba(0,0,0,.28)}.songs-hdr .songs-head{margin:0}.songs-hdr #songSearch{display:none;flex:0 0 100%;order:3;position:static!important;width:100%!important;height:42px!important;margin:12px 0 0!important;padding:0 14px!important;border-radius:14px!important;background:#1a1b20!important}.songs-hdr.show-search #songSearch{display:block}" +

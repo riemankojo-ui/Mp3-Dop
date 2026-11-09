@@ -37,6 +37,14 @@ jobs:
         run: |
           sed -i 's#</manifest>#<uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/><uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/><uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/></manifest>#' android/app/src/main/AndroidManifest.xml
 
+      - name: Add ringtone plugin
+        run: |
+          F=$(find android/app/src/main/java -name MainActivity.java)
+          D=$(dirname $F)
+          PKG=$(grep -m1 '^package' $F)
+          { echo "$PKG"; tail -n +2 RingtonePlugin.java; } > $D/RingtonePlugin.java
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.WRITE_SETTINGS"/><uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/></manifest>#' android/app/src/main/AndroidManifest.xml
+
       - name: Ask media permissions at launch
         run: |
           F=$(find android/app/src/main/java -name MainActivity.java)

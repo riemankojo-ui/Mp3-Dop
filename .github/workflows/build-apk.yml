@@ -59,6 +59,7 @@ jobs:
           public class MainActivity extends BridgeActivity {
             @Override
             public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(RingtonePlugin.class);
               super.onCreate(savedInstanceState);
               getWindow().setStatusBarColor(Color.parseColor("#1c1d21"));
               getWindow().setNavigationBarColor(Color.parseColor("#1c1d21"));
@@ -83,6 +84,11 @@ jobs:
               convert icon.png -resize ${S}x${S} $R/mipmap-$N/$f.png
             done
           done
+
+      - name: Dark splash screen
+        run: |
+          S=android/app/src/main/res/values/styles.xml
+          sed -i 's|<style name="AppTheme.NoActionBarLaunch"[^>]*>|&\n<item name="windowSplashScreenBackground">#1c1d21</item>\n<item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>|' $S
 
       - name: Sync
         run: npx cap sync android

@@ -699,6 +699,7 @@ function homeTile(s) {
   }).observe(document.querySelector(".app"), { subtree: true, attributes: true, attributeFilter: ["class"] });
   document.addEventListener("scroll", function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains("panel")) return; var b = document.querySelector(".back-home"), h = t.querySelector(".songs-hdr, .songs-head"), y = Math.max(0, t.scrollTop), m = Math.min(y, 52), d = y - (t.__lastY || 0), s = t.__e || 0; t.__lastY = y; s = Math.max(0, Math.min(m, s - d)); t.__e = s; if (h) { if (h.style.top) h.style.removeProperty("top"); h.style.willChange = "transform"; h.style.transform = "translate3d(0," + s + "px,0)"; } if (b) { b.style.willChange = "transform"; b.style.transition = "none"; b.style.transform = "translate3d(0," + (-(m - s)) + "px,0)"; } }, { capture: true, passive: true });
   tabs.forEach(function (t) { t.addEventListener("click", function () { var b = document.querySelector(".back-home"); if (b) b.style.transform = ""; }); });
+  try { if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) { var hs = document.createElement("style"); hs.textContent = "#filesBrowse{display:none!important}"; document.head.appendChild(hs); } } catch (e) {}
   (function () {
     var st = document.createElement("style");
     st.textContent = ".sm-ov{position:fixed;inset:0;z-index:10000}.sm-menu{position:fixed;right:14px;z-index:10001;min-width:180px;background:#16171b;border:1px solid #3a3d45;border-radius:0;box-shadow:0 8px 24px rgba(0,0,0,.5)}.sm-menu button{display:block;width:100%;appearance:none;border:0;border-bottom:1px solid #2e2f36;background:transparent;color:#fff;font:inherit;font-size:.92rem;font-weight:600;padding:13px 16px;text-align:left;cursor:pointer;border-radius:0}.sm-menu button:last-child{border-bottom:0}.sm-menu button:active{background:#23242a}.sm-menu .sm-del{color:#ff6b6b}.sm-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:10002;background:#2b2d33;color:#fff;padding:10px 16px;font-size:.85rem;border:1px solid #3a3d45}";
@@ -716,7 +717,7 @@ function homeTile(s) {
       document.body.appendChild(ov); document.body.appendChild(m);
     }
     async function act(a, row) {
-      if (a === "ring") { toast("Ringtone needs a small Android plugin"); return; }
+      if (a === "ring") { var f0 = row.__file, C = window.Capacitor; if (!f0 || !C || !C.registerPlugin) { toast("Not a phone file"); return; } try { await C.registerPlugin("Ringtone").setRingtone({ path: f0.path }); toast("Set as ringtone"); } catch (e) { toast(e && e.message === "permission" ? "Allow Modify system settings, then tap again" : "Failed: " + (e && e.message ? e.message : "error")); } return; }
       var f = row.__file, P = fsp();
       if (!f || !P) { toast("Not a phone file"); return; }
       var dir = f.path.indexOf("/") > -1 ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
@@ -1260,7 +1261,9 @@ btnNativeGallery.addEventListener("click", () => {
       ".vp-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}" +
       ".vp-play svg{width:30px;height:30px;fill:#fff;opacity:.9}" +
       ".vp-dur{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.75);color:#fff;font-size:.68rem;padding:1px 5px}" +
-      ".fp-icon{width:56px;height:56px;flex:none;border:1px solid var(--line);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;border-radius:4px}" +
+      ".fp-icon{width:56px;height:56px;flex:none;border:1px solid var(--line);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;border-radius:4px}.fp-icon svg{width:20px!important;height:20px!important}" +
+      "*{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}input,textarea,[contenteditable=true]{-webkit-user-select:text!important;user-select:text!important}" +
+      "button,.btn,.back-home,.tab,.home-song-row,.home-card,.hb-btn,.vp-row{transition:box-shadow .4s ease}button:active,.btn:active,.tab:active,.home-song-row:active,.home-card:active,.hb-btn:active,.vp-row:active,.back-home:active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.09)!important;transition-duration:.08s}.sm-menu button:active{background:transparent!important}#panel-videos .hb-btn,#panel-files .hb-btn{border:0!important;background:transparent!important}" +
       ".home-song-row .song-art{border-radius:4px!important}" +
       ".fp-icon svg{width:26px;height:26px;stroke:#fff;fill:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}.fp-icon svg:has(circle) path{fill:none}";
     document.head.appendChild(st);
@@ -1318,6 +1321,17 @@ btnNativeGallery.addEventListener("click", () => {
       var r = e.target.closest(".home-song-row");
       if (!r) return;
       if (r.__dir !== undefined) { curDir = r.__dir; renderFiles(); fp.scrollTop = 0; return; }
+      var dn0 = r.querySelector(".song-name"), dnm = dn0 ? dn0.textContent : "";
+      if (!r.__file && dnm && dnm !== ".." && dnm.indexOf(".") < 0) {
+        if (!lib.length) {
+          lib = [];
+          [["Music", ["Midnight Drive.mp3", "Golden Hour.mp3", "Slow Waves.mp3"]], ["Download", ["Report.pdf", "Backup.zip"]], ["Documents", ["Resume.docx", "Notes.txt"]]].forEach(function (d) {
+            lib.push({ path: d[0], name: d[0], kind: "folder", size: 0 });
+            d[1].forEach(function (n) { lib.push({ path: d[0] + "/" + n, name: n, kind: /\.(mp3|wav)$/i.test(n) ? "audio" : "doc", size: 2400000 }); });
+          });
+        }
+        curDir = dnm; renderFiles(); fp.scrollTop = 0; return;
+      }
       openSongSheet(r);
     });
     $("filesBrowse").addEventListener("click", function () {
@@ -1500,10 +1514,17 @@ btnNativeGallery.addEventListener("click", () => {
       if (curDir !== "") {
         var up = document.createElement("div");
         up.className = "home-song-row"; up.__dir = parentOf(curDir); up.__up = true;
-        up.innerHTML = '<div class="fp-icon">' + folderSvg + '</div><div class="home-song-info"><div class="song-name">..</div><div class="song-artist">Back to ' + (parentOf(curDir) || "all folders") + '</div></div>';
+        up.innerHTML = '<div class="fp-icon"><svg viewBox="0 0 24 24" style="fill:none"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="home-song-info"><div class="song-name">Back</div><div class="song-artist">To ' + (parentOf(curDir) || "all folders") + '</div></div>';
         list.insertBefore(up, list.firstChild);
       }
     }
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest(".back-home");
+      if (b && curDir !== "" && document.querySelector("#panel-files.active")) {
+        e.stopImmediatePropagation(); e.preventDefault();
+        curDir = parentOf(curDir); renderFiles(); fp.scrollTop = 0;
+      }
+    }, true);
     function renderLib(all) {
       var audio = all.filter(function (f) { return f.kind === "audio"; });
       var video = all.filter(function (f) { return f.kind === "video"; }).slice(0, 60);

@@ -1,6 +1,6 @@
 {
-  "name": "MP3 Dop",
-  "short_name": "MP3 Dop",
+  "name": "Audioroom",
+  "short_name": "Audioroom",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#000000",

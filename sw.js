@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mp3dop-v32';
+const CACHE_NAME = 'audioroom-v33';
 const ASSETS = [
   './',
   './index.html',

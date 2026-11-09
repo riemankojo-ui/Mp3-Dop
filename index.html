@@ -1117,6 +1117,9 @@ btnNativeGallery.addEventListener("click", () => {
         '<button type="button" class="ss-cancel" data-t="">Cancel</button></div>';
       ov.querySelector(".ss-title").textContent = row.querySelector(".song-name").textContent;
       ov.querySelector(".ss-sub").textContent = row.querySelector(".song-artist").textContent;
+      if (row.__file && row.__file.kind === "file") {
+        ov.querySelectorAll("[data-t]").forEach(function (x) { if (x.dataset.t) { x.disabled = true; x.style.cssText = "opacity:.35;pointer-events:none;"; } });
+      }
       if (row.__file && row.__file.kind === "video") {
         ov.querySelectorAll("[data-t]").forEach(function (x) {
           if (x.dataset.t === "video") { x.disabled = false; x.style.cssText = ""; }
@@ -1201,20 +1204,26 @@ btnNativeGallery.addEventListener("click", () => {
     });
 
     var files = [
-      ["Midnight Drive.mp3", "8.4 MB"], ["Golden Hour.mp3", "7.1 MB"], ["Slow Waves.mp3", "9.8 MB"],
-      ["City Lights.wav", "41.2 MB"], ["Paper Planes.mp3", "6.5 MB"], ["Sunday Rain.m4a", "5.9 MB"],
-      ["Neon Roads.mp3", "7.7 MB"], ["Voice Note.ogg", "1.3 MB"]
+      ["Music", "Folder"], ["Download", "Folder"], ["Documents", "Folder"],
+      ["Report.pdf", "1.2 MB"], ["Notes.txt", "4 KB"], ["Photo.jpg", "3.1 MB"],
+      ["Backup.zip", "22.4 MB"], ["Resume.docx", "86 KB"], ["Sheet.xlsx", "240 KB"],
+      ["Recording.mp3", "5.9 MB"], ["Clip.mp4", "41.2 MB"]
     ];
     var fileSvg = '<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+    var docSvg = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    var folderSvg = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
     var fp = mkPanel("panel-files", "Files", '<button type="button" class="btn ghost small" id="filesBrowse" style="margin:10px 0 4px;">Browse phone files</button>' +
       '<div class="home-song-list" style="padding-bottom:20px;">' +
       files.map(function (f) {
-        return '<div class="home-song-row"><div class="fp-icon">' + fileSvg + '</div>' +
+        var ic = f[0].indexOf(".") > -1 ? docSvg : folderSvg;
+        return '<div class="home-song-row"><div class="fp-icon">' + ic + '</div>' +
           '<div class="home-song-info"><div class="song-name">' + f[0] + '</div><div class="song-artist">' + f[1] + '</div></div></div>';
       }).join("") + '</div>');
     fp.addEventListener("click", function (e) {
       var r = e.target.closest(".home-song-row");
-      if (r) openSongSheet(r);
+      if (!r) return;
+      if (r.__dir !== undefined) { curDir = r.__dir; renderFiles(); fp.scrollTop = 0; return; }
+      openSongSheet(r);
     });
     $("filesBrowse").addEventListener("click", function () {
       var inp = $("tagFileInput");
@@ -1287,8 +1296,8 @@ btnNativeGallery.addEventListener("click", () => {
       var list = r.files || [];
       for (var i = 0; i < list.length; i++) {
         var f = list[i], name = f.name || f;
-        if (f.type === "directory") { if (depth > 0) await walk(path + "/" + name, depth - 1, out); continue; }
-        var kind = AUD.test(name) ? "audio" : VID.test(name) ? "video" : null;
+        if (f.type === "directory") { out.push({ name: name, kind: "folder", size: 0, mtime: f.mtime || 0, path: path + "/" + name }); if (depth > 0) await walk(path + "/" + name, depth - 1, out); continue; }
+        var kind = AUD.test(name) ? "audio" : VID.test(name) ? "video" : "file";
         if (kind) out.push({ name: name, kind: kind, size: f.size || 0, mtime: f.mtime || 0, uri: f.uri, path: path + "/" + name });
       }
     }
@@ -1298,6 +1307,22 @@ btnNativeGallery.addEventListener("click", () => {
       row.innerHTML = '<div class="fp-icon">' + (f.kind === "video" ? playSvg.replace("<svg", '<svg style="fill:var(--accent);stroke:none"') : fileSvg) + '</div><div class="home-song-info"><div class="song-name"></div><div class="song-artist"></div></div>';
       row.querySelector(".song-name").textContent = f.name.replace(/\.[^.]+$/, "");
       row.querySelector(".song-artist").textContent = fmtSize(f.size) + " · " + f.name.split(".").pop().toUpperCase();
+      return row;
+    }
+    function mkFileRow(f) {
+      if (f.kind === "folder") {
+        var fr = document.createElement("div");
+        fr.className = "home-song-row"; fr.__dir = f.path;
+        fr.innerHTML = '<div class="fp-icon">' + folderSvg + '</div><div class="home-song-info"><div class="song-name"></div><div class="song-artist">Folder</div></div>';
+        fr.querySelector(".song-name").textContent = f.name;
+        return fr;
+      }
+      var row = document.createElement("div");
+      row.className = "home-song-row"; row.__file = f;
+      var ico = f.kind === "video" ? playSvg.replace("<svg", '<svg style="fill:var(--accent);stroke:none"') : f.kind === "audio" ? fileSvg : docSvg;
+      row.innerHTML = '<div class="fp-icon">' + ico + '</div><div class="home-song-info"><div class="song-name"></div><div class="song-artist"></div></div>';
+      row.querySelector(".song-name").textContent = f.name;
+      row.querySelector(".song-artist").textContent = fmtSize(f.size) + " · " + (f.name.indexOf(".") > -1 ? f.name.split(".").pop().toUpperCase() : "FILE");
       return row;
     }
     function mkVideoRow(f) {
@@ -1317,6 +1342,20 @@ btnNativeGallery.addEventListener("click", () => {
       if (!items.length) { var p = document.createElement("div"); p.className = "song-artist"; p.style.padding = "12px 2px"; p.textContent = emptyMsg; list.appendChild(p); return; }
       items.forEach(function (f) { list.appendChild(make(f)); });
     }
+    var lib = [], curDir = "";
+    function parentOf(p) { var i = p.lastIndexOf("/"); return i < 0 ? "" : p.slice(0, i); }
+    function renderFiles() {
+      var items = lib.filter(function (f) { return parentOf(f.path) === curDir && (curDir !== "" || f.kind === "folder"); });
+      items.sort(function (a, b) { return (a.kind === "folder" ? 0 : 1) - (b.kind === "folder" ? 0 : 1) || a.name.localeCompare(b.name); });
+      var list = fp.querySelector(".home-song-list");
+      fillList(list, items.slice(0, 300), mkFileRow, "Nothing here.");
+      if (curDir !== "") {
+        var up = document.createElement("div");
+        up.className = "home-song-row"; up.__dir = parentOf(curDir); up.__up = true;
+        up.innerHTML = '<div class="fp-icon">' + folderSvg + '</div><div class="home-song-info"><div class="song-name">..</div><div class="song-artist">Back to ' + (parentOf(curDir) || "all folders") + '</div></div>';
+        list.insertBefore(up, list.firstChild);
+      }
+    }
     function renderLib(all) {
       var audio = all.filter(function (f) { return f.kind === "audio"; });
       var video = all.filter(function (f) { return f.kind === "video"; }).slice(0, 60);
@@ -1327,7 +1366,7 @@ btnNativeGallery.addEventListener("click", () => {
       hl.appendChild(more);
       fillList(panel.querySelector(".home-song-list"), audio, mkAudioRow, "No songs found. Allow music access, then reopen.");
       fillList(vp.querySelector(".home-song-list"), video, mkVideoRow, "No videos found. Allow video access, then reopen.");
-      fillList(fp.querySelector(".home-song-list"), all.slice(0, 200), mkAudioRow, "No files found. Allow media access, then reopen.");
+      lib = all; renderFiles();
     }
     var libBusy = false, libAt = 0;
     async function refreshLib(force) {
@@ -1335,7 +1374,7 @@ btnNativeGallery.addEventListener("click", () => {
       libBusy = true;
       try {
         var out = [];
-        for (var i = 0; i < ROOTS.length; i++) await walk(ROOTS[i], 3, out);
+        for (var i = 0; i < ROOTS.length; i++) { var n0 = out.length; await walk(ROOTS[i], 3, out); if (out.length > n0) out.push({ name: ROOTS[i], kind: "folder", size: 0, mtime: 0, path: ROOTS[i] }); }
         var seen = {}, all = [];
         out.forEach(function (f) { if (!seen[f.path]) { seen[f.path] = 1; all.push(f); } });
         all.sort(function (a, b) { return (b.mtime || 0) - (a.mtime || 0); });

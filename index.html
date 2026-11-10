@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Audioroom</title>
+<title>Audiorroom T2</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <style>
@@ -152,7 +153,7 @@ function homeTile(s) {
   .more-art svg { stroke: var(--accent); }
   .song-name { margin-top: 6px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-artist { color: var(--muted); font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #panel-songs.active { overflow-y: auto; }
+  #panel-songs.active { overflow-y: auto; overscroll-behavior: none; }
   .file-info { display: none; margin-top: 18px; }
   .file-info.show { display: block; }
   #convWave { display: block; width: 100%; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.04); }
@@ -227,8 +228,8 @@ function homeTile(s) {
   .btn { background: #1a1a1a; }
   @media (max-width: 560px) { .tabs { padding: 0 8px; } .tab { padding: 12px 10px; font-size: 0.82rem; }
     .panel { padding: 20px 16px 26px; } }
-</style>
-</head>
+html,body{overscroll-behavior-y:none;overscroll-behavior-x:none} [class*="list"],[class*="scroll"],[class*="panel-body"]{overscroll-behavior-y:contain} </style>
+<style>html,body{overscroll-behavior:none}</style></head>
 <body>
 <div class="app">
   <header>
@@ -430,7 +431,7 @@ function homeTile(s) {
   </section>
 </div>
 
-<script src="jsmediatags.min.js"></script>
+<script src="jsmediatags.min.js">(function(){var l=0;document.addEventListener('touchstart',function(e){l=e.touches[0].clientY},{passive:false});document.addEventListener('touchmove',function(e){var y=e.touches[0].clientY,s=e.target.closest('[class*="list"],[class*="scroll"]');if(!s)return;var t=s.scrollTop<=0&&y>l,b=s.scrollTop+s.clientHeight>=s.scrollHeight&&y<l;if(t||b)e.preventDefault();l=y},{passive:false})})(); </script>
 <script src="lame.min.js"></script>
 
 <script>
@@ -1267,8 +1268,9 @@ btnNativeGallery.addEventListener("click", () => {
       ".home-song-row .song-art{border-radius:4px!important}" +
       ".fp-icon svg{width:26px;height:26px;stroke:#fff;fill:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}.fp-icon svg:has(circle) path{fill:none}";
     document.head.appendChild(st);
-    panel.style.overflowY = "auto";
+    panel.style.overflowY = "auto"; panel.style.overscrollBehavior = "none";
 
+    document.addEventListener("touchmove", function (e) { var p = e.target.closest ? e.target.closest(".panel.active") : null; if (!p) return; var y = e.touches[0].clientY, d = (p.__y === undefined) ? 0 : y - p.__y; p.__y = y; if ((p.scrollTop <= 0 && d > 0) || (p.scrollTop + p.clientHeight >= p.scrollHeight - 1 && d < 0)) e.preventDefault(); }, { passive: false });
     window.__openSub = function (id) { openSub(id); };
     function openSub(id) {
       document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
@@ -1280,7 +1282,7 @@ btnNativeGallery.addEventListener("click", () => {
     }
     function mkPanel(id, title, html) {
       var s = document.createElement("section");
-      s.className = "panel"; s.id = id; s.style.overflowY = "auto";
+      s.className = "panel"; s.id = id; s.style.overflowY = "auto"; s.style.overscrollBehavior = "none";
       s.innerHTML = '<h2 class="songs-head">' + title + '</h2>' + html;
       app.appendChild(s);
       return s;
@@ -1808,5 +1810,58 @@ btnNativeGallery.addEventListener("click", () => {
   })();
 })();
 </script>
+<script>
+(function(){
+  var st=document.createElement('style');
+  st.textContent='html,body{overscroll-behavior:none!important}'+
+    '[class*="list"],[class*="scroll"],[class*="panel"]{overscroll-behavior:contain}';
+  document.head.appendChild(st);
+  var lastY=0;
+  document.addEventListener('touchstart',function(e){lastY=e.touches[0].clientY},{passive:false});
+  document.addEventListener('touchmove',function(e){
+    var y=e.touches[0].clientY,el=e.target,sc=null;
+    while(el&&el!==document.body){
+      var o=getComputedStyle(el).overflowY;
+      if((o==='auto'||o==='scroll')&&el.scrollHeight>el.clientHeight){sc=el;break}
+      el=el.parentElement;
+    }
+    if(sc){
+      var atTop=sc.scrollTop<=0&&y>lastY;
+      var atBot=sc.scrollTop+sc.clientHeight>=sc.scrollHeight&&y<lastY;
+      if(atTop||atBot)e.preventDefault();
+    }else{
+      e.preventDefault();
+    }
+    lastY=y;
+  },{passive:false});
+})();
+</script>
+<script>
+(function(){
+  var s=document.createElement('style');
+  s.textContent='html,body{position:fixed!important;inset:0!important;width:100%;height:100%;margin:0;padding:0;overflow:hidden!important;-webkit-user-select:none}'+
+  '*{-webkit-overflow-scrolling:touch}';
+  document.head.appendChild(s);
+  var lastY=0;
+  document.addEventListener('touchstart',function(e){lastY=e.touches[0].clientY},{passive:false});
+  document.addEventListener('touchmove',function(e){
+    var y=e.touches[0].clientY,el=e.target,sc=null;
+    while(el&&el!==document.documentElement){
+      var o=getComputedStyle(el).overflowY;
+      if((o==='auto'||o==='scroll'||o==='overlay')&&el.scrollHeight>el.clientHeight){sc=el;break}
+      el=el.parentElement;
+    }
+    if(sc){
+      var top=sc.scrollTop<=0&&y>lastY;
+      var bot=sc.scrollTop+sc.clientHeight>=sc.scrollHeight-1&&y<lastY;
+      if(top||bot)e.preventDefault();
+    }else{
+      e.preventDefault();
+    }
+    lastY=y;
+  },{passive:false});
+})();
+</script>
+<script>document.documentElement.style.background="red";</script>
 </body>
 </html>

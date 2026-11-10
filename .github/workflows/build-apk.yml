@@ -87,8 +87,26 @@ jobs:
 
       - name: Dark splash screen
         run: |
-          S=android/app/src/main/res/values/styles.xml
-          sed -i 's|<style name="AppTheme.NoActionBarLaunch"[^>]*>|&\n<item name="windowSplashScreenBackground">#1c1d21</item>\n<item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>|' $S
+          R=android/app/src/main/res
+          S=$R/values/styles.xml
+          find $R -name 'splash.png' -delete
+          mkdir -p $R/drawable-nodpi
+          convert icon.png -alpha set -fuzz 20% -fill none -draw 'color 0,0 floodfill' -resize 240x240 -background none -gravity center -extent 512x512 $R/drawable-nodpi/splash_logo.png
+          cat > $R/drawable/splash.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+            <item android:drawable="@android:color/transparent"/>
+            <item android:drawable="@drawable/splash_bg"/>
+            <item android:width="288dp" android:height="288dp" android:gravity="center" android:drawable="@drawable/splash_logo"/>
+          </layer-list>
+          XML
+          cat > $R/drawable/splash_bg.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android">
+            <solid android:color="#1c1d21"/>
+          </shape>
+          XML
+          sed -i 's|<style name="AppTheme.NoActionBarLaunch"[^>]*>|&\n<item name="windowSplashScreenBackground">#1c1d21</item>\n<item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>|' $S
 
       - name: Sync
         run: npx cap sync android
